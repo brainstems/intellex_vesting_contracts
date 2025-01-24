@@ -15,3 +15,8 @@ near-contract-standards = "3.1.0"
 [dev-dependencies]
 near-sdk-sim = "3.1.0"
 test_token = { path = "../test_token" }
+
+[package.metadata.near.reproducible_build]
+release = true
+docker = true
+docker-image = "ghcr.io/near/near-sdk-builder:0.7.0"
