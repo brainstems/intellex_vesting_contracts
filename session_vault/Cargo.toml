@@ -3,6 +3,7 @@ name = "session_vault"
 version = "1.0.0"
 authors = ["Marco <sun.dsk1@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/brainstems/intellex_vesting_contracts"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
