@@ -21,3 +21,4 @@ wasm-opt = ["z"]
 
 [package.metadata.near.reproducible_build]
 image = "ghcr.io/near/near-sdk-builder:0.7.0"
+image_digest = "sha256:b9f4a5a124c6a9226f8fa2c2f1ca12c9df6248e4e5f67c0d3a0e099f1f3a5d2e"
