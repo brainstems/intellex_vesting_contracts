@@ -10,16 +10,18 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 uint = { version = "0.9.0", default-features = false }
-near-sdk = "4.1.1"
-near-contract-standards = "4.1.1"
+near-sdk = "3.1.0"
+near-contract-standards = "3.1.0"
+serde_json = "=1.0.66"
+indexmap = "=1.6.2"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
 
 [dev-dependencies]
 near-sdk-sim = "3.1.0"
-test_token = { path = "../test_token" }
-
-[package.metadata.near]
-wasm-opt = ["z"]
-
-[package.metadata.near.reproducible_build]
-image = "ghcr.io/near/near-sdk-builder:0.7.0"
-image_digest = "sha256:b9f4a5a124c6a9226f8fa2c2f1ca12c9df6248e4e5f67c0d3a0e099f1f3a5d2e"

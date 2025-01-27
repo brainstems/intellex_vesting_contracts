@@ -28,10 +28,10 @@ near deploy $TOKEN res/token.wasm --accountId $TOKEN
 echo "Initializing token contract..."
 near call $TOKEN new_default_meta '{
     "owner_id": "'$ROOT'",
-    "total_supply": "10000000'$ZERO18'",  # 10M total supply
+    "total_supply": "1000000000'$ZERO18'",  # 1B total supply
     "name": "ITLX Token",
     "symbol": "ITLX",
-    "decimals": 18,
+    "decimals": 24,
     "icon": ""
 }' --accountId $TOKEN
 
@@ -45,7 +45,7 @@ echo "Phase 2: Vesting Vault Deployment"
 
 # 2.1 Create vault contract account
 echo "Creating vault contract account..."
-near create-account $VAULT --masterAccount $ROOT --initialBalance 35
+near create-account $VAULT --masterAccount $ROOT --initialBalance 15
 
 # 2.2 Deploy vault contract
 echo "Deploying vesting vault contract..."
@@ -81,7 +81,7 @@ echo "Phase 4: Configuring Vesting Schedules"
 # 4.1 Team Vesting Setup
 echo "Setting up Team vesting..."
 near call $VAULT add_account '{
-    "account_id": "team_wallet.near",
+    "account_id": "intellex_protocol_activators_1.testnet",
     "start_timestamp": 1704067200,
     "session_interval": 2592000,
     "session_num": 24,

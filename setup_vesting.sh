@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Configuration
-export NEAR_ENV=mainnet  # Change to testnet for testing
-export ROOT="YOUR_ACCOUNT.near"  # Your main account that will be the owner
-export VAULT="vesting-vault.YOUR_ACCOUNT.near"  # The vault contract account
-export FT="itlx.YOUR_ACCOUNT.near"  # Your ITLX token contract
-export ZERO18="000000000000000000"  # 18 zeros for decimal places
+export NEAR_ENV=testnet  # Change to testnet for testing
+export ROOT="intellex_contract_owner.testnet"  # Your main account that will be the owner
+export VAULT="vesting-vault.intellex_contract_owner.near"  # The vault contract account
+export FT="itlx.intellex_contract_owner.near"  # Your ITLX token contract
+export ZERO18="000000000000000000000000"  # 18 zeros for decimal places
 export TGAS="000000000000"
 
 echo "Setting up vesting vault for ITLX token..."
