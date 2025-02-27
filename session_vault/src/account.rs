@@ -20,6 +20,41 @@ impl VAccount {
             VAccount::Current(account) => account,
         }
     }
+
+    pub fn new() -> Self {
+        Self::Current(Account {
+            account_id: "".to_string(),
+            start_timestamp: 0,
+            session_interval: 0,
+            session_num: 0,
+            last_claim_session: 0,
+            release_per_session: 0,
+            claimed_amount: 0,
+            deposited_amount: 0,
+        })
+    }
+    
+    pub fn deposit(&mut self, amount: Balance) {
+        match self {
+            VAccount::Current(account) => account.deposited_amount += amount,
+        }
+    }
+    
+    pub fn withdraw(&mut self, amount: Balance) -> Balance {
+        match self {
+            VAccount::Current(account) => {
+                assert!(account.deposited_amount >= amount, "Insufficient balance");
+                account.deposited_amount -= amount;
+                amount
+            },
+        }
+    }
+    
+    pub fn get_balance(&self) -> Balance {
+        match self {
+            VAccount::Current(account) => account.deposited_amount,
+        }
+    }
 }
 
 impl From<Account> for VAccount {
@@ -80,7 +115,6 @@ impl Account {
 }
 
 impl Contract {
-
     pub fn internal_deposit_to_account(
         &mut self,
         account_id: &AccountId,
@@ -138,7 +172,7 @@ impl Contract {
 
 #[near_bindgen]
 impl Contract {
-    
+    #[payable]
     pub fn claim(&mut self, account_id: Option<ValidAccountId>) -> PromiseOrValue<bool> {
         let account_id = account_id.map(|va| va.into()).unwrap_or(env::predecessor_account_id());
         let mut account = self
@@ -230,9 +264,9 @@ impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
         &mut self,
         sender_id: ValidAccountId,
-        amount: WrappedBalance,
+        amount: near_sdk::json_types::U128,
         msg: String,
-    ) -> PromiseOrValue<WrappedBalance> {
+    ) -> PromiseOrValue<near_sdk::json_types::U128> {
 
         let token_in = env::predecessor_account_id();
         let amount: Balance = amount.into();

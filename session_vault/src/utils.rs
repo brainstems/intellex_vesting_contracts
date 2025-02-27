@@ -14,6 +14,6 @@ pub(crate) fn to_nano(timestamp: TimestampSec) -> Timestamp {
 }
 
 #[ext_contract(ext_self)]
-trait AccountClaimCallbacks {
+pub trait ExtSelf {
     fn after_ft_transfer(&mut self, account_id: AccountId, amount: WrappedBalance) -> bool;
 }

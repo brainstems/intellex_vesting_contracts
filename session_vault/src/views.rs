@@ -98,13 +98,13 @@ impl Contract {
         }
     }
 
-    pub fn list_accounts(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<AccountInfo> {
+    pub fn list_accounts(&self, from_index: Option<U64>, limit: Option<U64>) -> Vec<AccountInfo> {
         let keys = self.data().accounts.keys_as_vector();
-        let from_index = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(keys.len());
+        let from_index = from_index.unwrap_or(U64(0));
+        let limit = limit.unwrap_or(U64(keys.len() as u64));
 
-        (from_index..std::cmp::min(from_index + limit, keys.len()))
-            .map(|index| self.data().accounts.get(&keys.get(index).unwrap()).unwrap())
+        (from_index.0..std::cmp::min(from_index.0 + limit.0, keys.len() as u64))
+            .map(|index| self.data().accounts.get(&keys.get(index as u64).unwrap()).unwrap())
             .map(|va| va.into())
             .collect()
     }
