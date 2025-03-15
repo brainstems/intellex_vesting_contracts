@@ -1,38 +1,38 @@
 //! Implement all the relevant logic for owner of this contract.
-use crate::*;
 use crate::utils::TimestampSec;
-use near_sdk::{assert_one_yocto, StorageUsage, Promise};
+use crate::*;
+use near_sdk::{assert_one_yocto, json_types::U128, near, NearToken, Promise, StorageUsage};
 
 impl Contract {
     /// Check how much storage taken costs and refund the left over back.
     fn internal_check_storage(&self, prev_storage: StorageUsage) {
-        let storage_cost = env::storage_usage()
+        let storage = env::storage_usage()
             .checked_sub(prev_storage)
-            .unwrap_or_default() as Balance
-            * env::storage_byte_cost();
+            .unwrap_or_default() as u128;
+        let storage_cost = env::storage_byte_cost().checked_mul(storage).unwrap();
 
-        let refund = env::attached_deposit()
-            .checked_sub(storage_cost)
-            .expect(
-                format!(
-                    "ERR_STORAGE_DEPOSIT need {}, attatched {}", 
-                    storage_cost, env::attached_deposit()
-                ).as_str()
-            );
-        if refund > 0 {
+        let refund = env::attached_deposit().checked_sub(storage_cost).expect(
+            format!(
+                "ERR_STORAGE_DEPOSIT need {}, attatched {}",
+                storage_cost,
+                env::attached_deposit()
+            )
+            .as_str(),
+        );
+        if refund > NearToken::from_yoctonear(0) {
             Promise::new(env::predecessor_account_id()).transfer(refund);
         }
     }
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     /// Change owner. Only can be called by owner.
     #[payable]
-    pub fn set_owner(&mut self, owner_id: ValidAccountId) {
+    pub fn set_owner(&mut self, owner_id: AccountId) {
         self.assert_owner();
         assert_one_yocto();
-        self.data_mut().owner_id = owner_id.as_ref().clone();
+        self.data_mut().owner_id = owner_id.clone();
     }
 
     // /// Get the owner of this account.
@@ -43,11 +43,11 @@ impl Contract {
     #[payable]
     pub fn add_account(
         &mut self,
-        account_id: ValidAccountId,
+        account_id: AccountId,
         start_timestamp: TimestampSec,
         session_interval: TimestampSec,
         session_num: u32,
-        release_per_session: WrappedBalance,
+        release_per_session: U128,
     ) -> bool {
         let prev_storage = env::storage_usage();
         self.assert_owner();

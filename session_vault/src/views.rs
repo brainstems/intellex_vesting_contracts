@@ -1,5 +1,5 @@
-use crate::*;
 use crate::utils::*;
+use crate::*;
 use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -12,58 +12,55 @@ pub struct ContractInfo {
     // token kept by this vault
     pub token_account_id: AccountId,
     // the total deposited amount in this vault
-    pub total_balance: WrappedBalance,
+    pub total_balance: U128,
     // already claimed balance
-    pub claimed_balance: WrappedBalance,
+    pub claimed_balance: U128,
 }
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(feature = "test", derive(Deserialize, Clone))]
+#[near(serializers=[json])]
+#[cfg_attr(test, derive(Deserialize, Clone))]
 pub struct StorageReport {
     pub storage: U64,
-    pub locking_near: WrappedBalance,
+    pub locking_near: U128,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(Clone)]
+#[near(serializers = [json])]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
 pub struct AccountInfo {
     pub account_id: AccountId,
 
     // session start time
     pub start_timestamp: TimestampSec,
-    // per session lasts, eg: 90 days 
+    // per session lasts, eg: 90 days
     pub session_interval: TimestampSec,
     // totally how many session, eg: 1
     pub session_num: u32,
     // the session index of previous claim, start from 1
     pub last_claim_session: u32,
     // expected total_amount = session_num * release_per_session
-    pub release_per_session: WrappedBalance,
+    pub release_per_session: U128,
 
-    pub claimed_amount: WrappedBalance,
-    pub deposited_amount: WrappedBalance,
+    pub claimed_amount: U128,
+    pub deposited_amount: U128,
 
-    pub unclaimed_amount: WrappedBalance,
+    pub unclaimed_amount: U128,
 }
 
 impl From<VAccount> for AccountInfo {
     fn from(vacc: VAccount) -> Self {
         match vacc {
-            VAccount::Current(acc) => {
-                Self {
-                    account_id: acc.account_id.clone(),
-                    start_timestamp: acc.start_timestamp,
-                    session_interval: acc.session_interval,
-                    session_num: acc.session_num,
-                    last_claim_session: acc.last_claim_session,
-                    release_per_session: acc.release_per_session.into(),
-                    claimed_amount: acc.claimed_amount.into(),
-                    deposited_amount: acc.deposited_amount.into(),
-                    unclaimed_amount: acc.unclaimed_amount(env::block_timestamp()).into(),
-                }
-            }
+            VAccount::Current(acc) => Self {
+                account_id: acc.account_id.clone(),
+                start_timestamp: acc.start_timestamp,
+                session_interval: acc.session_interval,
+                session_num: acc.session_num,
+                last_claim_session: acc.last_claim_session,
+                release_per_session: acc.release_per_session.into(),
+                claimed_amount: acc.claimed_amount.into(),
+                deposited_amount: acc.deposited_amount.into(),
+                unclaimed_amount: acc.unclaimed_amount(env::block_timestamp()).into(),
+            },
         }
     }
 }
@@ -71,7 +68,7 @@ impl From<VAccount> for AccountInfo {
 #[near_bindgen]
 impl Contract {
     /// Return contract basic info
-    pub fn contract_metadata(&self) -> ContractInfo{
+    pub fn contract_metadata(&self) -> ContractInfo {
         let current_state = self.data();
         ContractInfo {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -83,15 +80,20 @@ impl Contract {
     }
 
     pub fn get_contract_storage_report(&self) -> StorageReport {
-        let su = env::storage_usage();
+        let su: u64 = env::storage_usage();
+        let locking_near: U128 = env::storage_byte_cost()
+            .checked_mul(su as u128)
+            .expect("ERR_INTEGER_OVERFLOW_WHEN_CALCULATING_LOCKING_NEAR")
+            .as_yoctonear()
+            .into();
         StorageReport {
             storage: U64(su),
-            locking_near: (su as Balance * env::storage_byte_cost()).into(),
+            locking_near,
         }
     }
 
-    pub fn get_account(&self, account_id: ValidAccountId) -> Option<AccountInfo> {
-        if let Some(vacc) = self.data().accounts.get(account_id.as_ref()) {
+    pub fn get_account(&self, account_id: AccountId) -> Option<AccountInfo> {
+        if let Some(vacc) = self.data().accounts.get(&account_id) {
             Some(vacc.into())
         } else {
             None

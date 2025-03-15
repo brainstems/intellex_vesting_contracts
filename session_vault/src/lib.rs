@@ -2,26 +2,26 @@
 * REF session_vault contract
 *
 */
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedMap};
-use near_sdk::json_types::{ValidAccountId, WrappedBalance, U64};
-use near_sdk::{env, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault};
+use near_sdk::collections::UnorderedMap;
+use near_sdk::json_types::{U128, U64};
+use near_sdk::{env, near, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault};
 
-pub use crate::views::ContractInfo;
 use crate::account::VAccount;
-mod owner;
+pub use crate::views::ContractInfo;
 mod account;
+mod owner;
 mod utils;
 mod views;
 
-near_sdk::setup_alloc!();
+// near_sdk::setup_alloc!();
 
-#[derive(BorshStorageKey, BorshSerialize)]
+#[near(serializers = [borsh])]
+#[derive(BorshStorageKey)]
 pub enum StorageKeys {
     Accounts,
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(serializers = [borsh])]
 pub struct ContractData {
     // owner of this contract
     owner_id: AccountId,
@@ -30,37 +30,39 @@ pub struct ContractData {
     token_account_id: AccountId,
 
     // the total deposited amount in this vault
-    total_balance: Balance,
-    
+    total_balance: U128,
+
     // already claimed balance
-    claimed_balance: Balance,
+    claimed_balance: U128,
 
     accounts: UnorderedMap<AccountId, VAccount>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(serializers = [borsh])]
 pub enum VContractData {
     Current(ContractData),
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[near(contract_state)]
+#[derive(PanicOnDefault)]
 pub struct Contract {
     data: VContractData,
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     #[init]
-    pub fn new(owner_id: ValidAccountId, token_id: ValidAccountId) -> Self {
+    pub fn new(owner_id: AccountId, token_id: AccountId) -> Self {
         assert!(!env::state_exists(), "Already initialized");
+        let total_balance: U128 = U128::from(0);
+        let claimed_balance: U128 = U128::from(0);
         Self {
             data: VContractData::Current(ContractData {
                 owner_id: owner_id.into(),
                 token_account_id: token_id.into(),
-                total_balance: 0,
-                claimed_balance: 0,
-                accounts: UnorderedMap::new(StorageKeys::Accounts)
+                total_balance,
+                claimed_balance,
+                accounts: UnorderedMap::new(StorageKeys::Accounts),
             }),
         }
     }
