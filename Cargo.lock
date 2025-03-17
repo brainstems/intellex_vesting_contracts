@@ -1024,6 +1024,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
+name = "fungible-token"
+version = "1.0.0"
+source = "git+https://github.com/On0n0k1/itlx_nep141_token.git#9c42abe4fdb432e16f0b6eebdc66f4d5e40ff270"
+dependencies = [
+ "base64 0.22.1",
+ "near-contract-standards 5.9.0",
+ "near-sdk 5.9.0",
+]
+
+[[package]]
 name = "funty"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2676,6 +2686,7 @@ dependencies = [
 name = "session_vault"
 version = "1.0.0"
 dependencies = [
+ "fungible-token",
  "indexmap 2.8.0",
  "near-contract-standards 5.9.0",
  "near-sdk 5.9.0",
@@ -3107,6 +3118,7 @@ checksum = "ad9680608df133af2c1ddd5eaf1ddce91d60d61b6bc51494ef326458365a470a"
 name = "vault"
 version = "0.3.1"
 dependencies = [
+ "fungible-token",
  "near-contract-standards 5.9.0",
  "near-sdk 5.9.0",
  "near-sdk-sim",

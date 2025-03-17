@@ -193,27 +193,39 @@ impl Contract {
         data_mut.claimed_balance = claimed_balance.into();
         // self.data_mut()
         data_mut.accounts.insert(&account_id, &account.into());
-
-        ext_fungible_token::ft_transfer(
-            account_id.clone(),
-            amount.into(),
-            Some(format!(
-                "Claiming unlocked {} balance from {}",
-                amount,
-                env::current_account_id()
-            )),
-            &self.data().token_account_id,
-            ONE_YOCTO,
-            GAS_FOR_FT_TRANSFER,
-        )
-        .then(ext_self::after_ft_transfer(
-            account_id,
-            amount.into(),
-            &env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_AFTER_FT_TRANSFER,
-        ))
-        .into()
+        fungible_token::Contract::ext(self.data().token_account_id.clone())
+            .with_attached_deposit(ONE_YOCTO)
+            .with_static_gas(GAS_FOR_FT_TRANSFER)
+            .ft_transfer(
+                account_id.clone(),
+                amount.into(),
+                Some(format!(
+                    "Claiming unlocked {} balance from {}",
+                    amount,
+                    env::current_account_id()
+                )),
+            )
+            .into()
+        // ext_fungible_token::ft_transfer(
+        //     account_id.clone(),
+        //     amount.into(),
+        //     Some(format!(
+        //         "Claiming unlocked {} balance from {}",
+        //         amount,
+        //         env::current_account_id()
+        //     )),
+        //     &self.data().token_account_id,
+        //     ONE_YOCTO,
+        //     GAS_FOR_FT_TRANSFER,
+        // )
+        // .then(ext_self::after_ft_transfer(
+        //     account_id,
+        //     amount.into(),
+        //     &env::current_account_id(),
+        //     NO_DEPOSIT,
+        //     GAS_FOR_AFTER_FT_TRANSFER,
+        // ))
+        // .into()
     }
 
     #[private]

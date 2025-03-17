@@ -26,18 +26,18 @@ impl Contract {
     ) -> bool {
         self.assert_owner();
         self.internal_add_account(
-            account_id.into(),
+            account_id,
             start_timestamp,
             release_interval,
             release_rounds,
-            release_per_round.into(),
+            release_per_round,
         )
     }
 
     pub fn payment(&mut self, receiver_id: AccountId, amount: U128) -> PromiseOrValue<bool> {
         self.assert_owner();
         let amount: u128 = amount.into();
-        let account_id: AccountId = receiver_id.into();
+        let account_id: AccountId = receiver_id;
 
         let (liquid_balance, unclaimed_balance) = self.cur_funding_balance();
         assert!(
@@ -47,26 +47,45 @@ impl Contract {
 
         if amount > 0 {
             self.claimed_balance = (self.claimed_balance.0 + amount).into();
-            ext_fungible_token::ft_transfer(
-                account_id.clone(),
-                amount.into(),
-                Some(format!(
-                    "Payment {} balance from {}",
-                    amount,
-                    env::current_account_id()
-                )),
-                &self.token_account_id,
-                ONE_YOCTO,
-                GAS_FOR_FT_TRANSFER,
-            )
-            .then(ext_payment::after_payment_transfer(
-                account_id,
-                amount.into(),
-                &env::current_account_id(),
-                NO_DEPOSIT,
-                GAS_FOR_AFTER_FT_TRANSFER,
-            ))
-            .into()
+            fungible_token::Contract::ext(self.token_account_id.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .with_static_gas(GAS_FOR_FT_TRANSFER)
+                .ft_transfer(
+                    account_id.clone(),
+                    amount.into(),
+                    Some(format!(
+                        "Payment {} balance from {}",
+                        amount,
+                        env::current_account_id()
+                    )),
+                )
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_attached_deposit(NO_DEPOSIT)
+                        .with_static_gas(GAS_FOR_AFTER_FT_TRANSFER)
+                        .after_payment_transfer(account_id, amount.into()),
+                )
+                .into()
+            // ext_fungible_token::ft_transfer(
+            //     account_id.clone(),
+            //     amount.into(),
+            //     Some(format!(
+            //         "Payment {} balance from {}",
+            //         amount,
+            //         env::current_account_id()
+            //     )),
+            //     &self.token_account_id,
+            //     ONE_YOCTO,
+            //     GAS_FOR_FT_TRANSFER,
+            // )
+            // .then(ext_payment::after_payment_transfer(
+            //     account_id,
+            //     amount.into(),
+            //     &env::current_account_id(),
+            //     NO_DEPOSIT,
+            //     GAS_FOR_AFTER_FT_TRANSFER,
+            // ))
+            // .into()
         } else {
             PromiseOrValue::Value(true)
         }

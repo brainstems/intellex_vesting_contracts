@@ -1,6 +1,6 @@
 use near_contract_standards::fungible_token::Balance;
 // use near_contract_standards::fungible_token::core_impl::ext_fungible_token;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 // use near_sdk::json_types::WrappedBalance;
 use near_sdk::{
@@ -10,7 +10,7 @@ use near_sdk::{
     log,
     near,
     AccountId,
-    NearToken,
+    // NearToken,
     // Balance,
     PromiseOrValue,
 };
@@ -76,32 +76,60 @@ impl Contract {
             "The claim amount beyonds liquidity"
         );
 
-        let times = (amount / account.release_per_round.0) as u32;
-        let mut account = self.accounts.get_mut(&account_id).unwrap();
+        let times: u32 = (amount / account.release_per_round.0) as u32;
+        let account: &mut Account = self.accounts.get_mut(&account_id).unwrap();
 
         self.claimed_balance = (self.claimed_balance.0 + amount).into();
         account.last_claim_round += times;
+        let receiver_id: AccountId = account_id.clone();
+        let memo: Option<String> = Some(format!(
+            "Claiming unlocked {} balance from {}",
+            amount,
+            env::current_account_id()
+        ));
+        // let __account_id: &AccountId = &self.token_account_id;
+        // let __balance: NearToken = ONE_YOCTO;
+        // let __gas: near_sdk::Gas = GAS_FOR_FT_TRANSFER;
+        fungible_token::Contract::ext(self.token_account_id.clone())
+            .with_attached_deposit(ONE_YOCTO)
+            .with_static_gas(GAS_FOR_FT_TRANSFER)
+            .ft_transfer(receiver_id, amount.into(), memo)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_AFTER_FT_TRANSFER)
+                    .with_attached_deposit(NO_DEPOSIT)
+                    .after_ft_transfer(account_id, amount.into()),
+            )
+            .into()
+        // .then(ext_self::after_ft_transfer(
+        //     account_id,
+        //     amount.into(),
+        //     &env::current_account_id(),
+        //     NO_DEPOSIT,
+        //     GAS_FOR_AFTER_FT_TRANSFER,
+        // ))
+        // .into()
 
-        ext_fungible_token::ft_transfer(
-            account_id.clone(),
-            amount.into(),
-            Some(format!(
-                "Claiming unlocked {} balance from {}",
-                amount,
-                env::current_account_id()
-            )),
-            &self.token_account_id,
-            ONE_YOCTO,
-            GAS_FOR_FT_TRANSFER,
-        )
-        .then(ext_self::after_ft_transfer(
-            account_id,
-            amount.into(),
-            &env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_AFTER_FT_TRANSFER,
-        ))
-        .into()
+        // ext_fungible_token::ft_transfer(
+        //     account_id.clone(),
+        //     amount.into(),
+        //     Some(format!(
+        //         "Claiming unlocked {} balance from {}",
+        //         amount,
+        //         env::current_account_id()
+        //     )),
+        //     &self.token_account_id,
+        //     ONE_YOCTO,
+        //     GAS_FOR_FT_TRANSFER,
+        // )
+        // .then(ext_self::after_ft_transfer(
+        //     account_id,
+        //     amount.into(),
+        //     &env::current_account_id(),
+        //     NO_DEPOSIT,
+        //     GAS_FOR_AFTER_FT_TRANSFER,
+        // ))
+        // .into()
     }
 }
 
@@ -154,7 +182,7 @@ impl AccountClaimCallbacks for Contract {
     fn after_ft_transfer(&mut self, account_id: AccountId, amount: Balance) -> bool {
         let promise_success = is_promise_success();
         if !promise_success {
-            let mut account = self
+            let account = self
                 .accounts
                 .get_mut(&account_id)
                 .expect("The claim is not found");

@@ -1,15 +1,14 @@
 [workspace]
-members = [
-    "./vault",
-    "./test_token",
-    "./session_vault",
-]
+members = ["./vault", "./test_token", "./session_vault"]
 
 
 [profile.release]
-codegen-units=1
+codegen-units = 1
 opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[workspace.dependencies]
+fungible-token = { git = "https://github.com/On0n0k1/itlx_nep141_token.git" }
