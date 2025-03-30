@@ -1,18 +1,16 @@
 use std::str::FromStr;
 
 // use near_contract_standards::fungible_token::core_impl::ext_fungible_token;
+use crate::utils::ext_fungible_token;
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
-    NearToken,
-};
 
 use crate::utils::*;
 use crate::*;
-use near_sdk::{env, is_promise_success, log, near, near_bindgen, AccountId, PromiseOrValue};
+use near_sdk::{env, is_promise_success, log, near, AccountId, PromiseOrValue};
 
 // #[derive(BorshDeserialize, BorshSerialize)]
-#[near(serializers = [borsh])]
+#[derive(Clone)]
+#[near(serializers = [borsh, json])]
 pub enum VAccount {
     Current(Account),
 }
@@ -32,8 +30,15 @@ impl From<Account> for VAccount {
     }
 }
 
+impl From<&Account> for VAccount {
+    fn from(account: &Account) -> Self {
+        VAccount::Current(account.clone())
+    }
+}
+
 // #[derive(BorshDeserialize, BorshSerialize)]
-#[near(serializers = [borsh])]
+#[derive(Clone)]
+#[near(serializers = [borsh, json])]
 pub struct Account {
     pub account_id: AccountId,
 
@@ -87,8 +92,8 @@ impl Contract {
         let mut account = self
             .data()
             .accounts
-            .get(&account_id)
-            .map(|va| va.into_current())
+            .get(account_id)
+            .map(|va| va.clone().into_current())
             .expect("ERR_ACCOUNT_NOT_EXIST");
         assert!(
             account.locking_amount().0 == 0 && account.last_claim_session != account.session_num,
@@ -102,7 +107,7 @@ impl Contract {
         account.deposited_amount = (account.deposited_amount.0 + amount.0).into();
         self.data_mut()
             .accounts
-            .insert(&account_id, &account.into());
+            .insert(account_id.clone(), account.into());
         let data_mut = self.data_mut();
         let total_balance = data_mut.total_balance.0 + amount.0;
         // self.data_mut().total_balance += amount;
@@ -118,7 +123,7 @@ impl Contract {
         release_per_session: U128,
     ) -> bool {
         if let Some(acc) = self.data().accounts.get(&account_id) {
-            let mut account = acc.into_current();
+            let mut account = acc.clone().into_current();
             assert!(
                 to_nano(account.start_timestamp + account.session_num * account.session_interval)
                     < env::block_timestamp(),
@@ -134,9 +139,7 @@ impl Contract {
             account.session_num = session_num;
             account.release_per_session = release_per_session;
             account.last_claim_session = 0;
-            self.data_mut()
-                .accounts
-                .insert(&account_id, &account.into());
+            self.data_mut().accounts.insert(account_id, account.into());
         } else {
             let account = Account {
                 account_id: account_id.clone(),
@@ -148,25 +151,21 @@ impl Contract {
                 claimed_amount: 0.into(),
                 deposited_amount: 0.into(),
             };
-            self.data_mut()
-                .accounts
-                .insert(&account_id, &account.into());
+            self.data_mut().accounts.insert(account_id, account.into());
         }
         true
     }
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     pub fn claim(&mut self, account_id: Option<AccountId>) -> PromiseOrValue<bool> {
-        let account_id = account_id
-            .map(|va| va.into())
-            .unwrap_or(env::predecessor_account_id());
+        let account_id = account_id.unwrap_or(env::predecessor_account_id());
         let mut account = self
             .data()
             .accounts
             .get(&account_id)
-            .map(|va| va.into_current())
+            .map(|va| va.clone().into_current())
             .expect("ERR_ACCOUNT_NOT_EXIST");
 
         if account.last_claim_session > 0 && account.last_claim_session >= account.session_num {
@@ -192,8 +191,8 @@ impl Contract {
         // self.data_mut().claimed_balance += amount;
         data_mut.claimed_balance = claimed_balance.into();
         // self.data_mut()
-        data_mut.accounts.insert(&account_id, &account.into());
-        fungible_token::Contract::ext(self.data().token_account_id.clone())
+        data_mut.accounts.insert(account_id.clone(), account.into());
+        ext_fungible_token::ext(self.data().token_account_id.clone())
             .with_attached_deposit(ONE_YOCTO)
             .with_static_gas(GAS_FOR_FT_TRANSFER)
             .ft_transfer(
@@ -236,7 +235,7 @@ impl Contract {
                 .data()
                 .accounts
                 .get(&account_id)
-                .map(|va| va.into_current())
+                .map(|va| va.clone().into_current())
                 .expect("The claim is not found");
             let times = (amount.0 / account.release_per_session.0) as u32;
             account.last_claim_session -= times;
@@ -247,7 +246,7 @@ impl Contract {
             // self.data_mut().claimed_balance -= amount.0;
             data_mut.claimed_balance = claimed_balance.into();
             // self.data_mut()
-            data_mut.accounts.insert(&account_id, &account.into());
+            data_mut.accounts.insert(account_id.clone(), account.into());
             log!(
                 "Account claim failed and rollback, account is {}, balance is {}",
                 account_id,
@@ -264,7 +263,7 @@ impl Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl FungibleTokenReceiver for Contract {
     /// Callback on receiving tokens by this contract.
     fn ft_on_transfer(
@@ -288,7 +287,7 @@ impl FungibleTokenReceiver for Contract {
             self.internal_deposit_to_account(&account_id, amount);
         }
 
-        let sender: AccountId = sender_id.into();
+        let sender: AccountId = sender_id;
         log!("{} deposit token to {}, amount: {}", sender, msg, amount.0);
         PromiseOrValue::Value(0.into())
     }

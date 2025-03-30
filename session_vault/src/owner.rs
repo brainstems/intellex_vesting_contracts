@@ -11,14 +11,14 @@ impl Contract {
             .unwrap_or_default() as u128;
         let storage_cost = env::storage_byte_cost().checked_mul(storage).unwrap();
 
-        let refund = env::attached_deposit().checked_sub(storage_cost).expect(
-            format!(
-                "ERR_STORAGE_DEPOSIT need {}, attatched {}",
-                storage_cost,
-                env::attached_deposit()
-            )
-            .as_str(),
+        let msg = format!(
+            "ERR_STORAGE_DEPOSIT need {}, attatched {}",
+            storage_cost,
+            env::attached_deposit()
         );
+        let refund = env::attached_deposit()
+            .checked_sub(storage_cost)
+            .expect(&msg);
         if refund > NearToken::from_yoctonear(0) {
             Promise::new(env::predecessor_account_id()).transfer(refund);
         }
@@ -52,11 +52,11 @@ impl Contract {
         let prev_storage = env::storage_usage();
         self.assert_owner();
         let ret = self.internal_add_account(
-            account_id.into(),
+            account_id,
             start_timestamp,
             session_interval,
             session_num,
-            release_per_session.into(),
+            release_per_session,
         );
         self.internal_check_storage(prev_storage);
         ret

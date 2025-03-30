@@ -1,9 +1,8 @@
 use crate::utils::*;
 use crate::*;
-use near_sdk::serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(Clone)]
+#[near(serializers = [json])]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
 pub struct ContractInfo {
     pub version: String,
@@ -18,7 +17,7 @@ pub struct ContractInfo {
 }
 
 #[near(serializers=[json])]
-#[cfg_attr(test, derive(Deserialize, Clone))]
+#[cfg_attr(test, derive(Clone))]
 pub struct StorageReport {
     pub storage: U64,
     pub locking_near: U128,
@@ -56,16 +55,22 @@ impl From<VAccount> for AccountInfo {
                 session_interval: acc.session_interval,
                 session_num: acc.session_num,
                 last_claim_session: acc.last_claim_session,
-                release_per_session: acc.release_per_session.into(),
-                claimed_amount: acc.claimed_amount.into(),
-                deposited_amount: acc.deposited_amount.into(),
+                release_per_session: acc.release_per_session,
+                claimed_amount: acc.claimed_amount,
+                deposited_amount: acc.deposited_amount,
                 unclaimed_amount: acc.unclaimed_amount(env::block_timestamp()).into(),
             },
         }
     }
 }
 
-#[near_bindgen]
+impl From<&VAccount> for AccountInfo {
+    fn from(vacc: &VAccount) -> Self {
+        vacc.clone().into()
+    }
+}
+
+#[near]
 impl Contract {
     /// Return contract basic info
     pub fn contract_metadata(&self) -> ContractInfo {
@@ -74,8 +79,8 @@ impl Contract {
             version: env!("CARGO_PKG_VERSION").to_string(),
             owner_id: current_state.owner_id.clone(),
             token_account_id: current_state.token_account_id.clone(),
-            total_balance: current_state.total_balance.into(),
-            claimed_balance: current_state.claimed_balance.into(),
+            total_balance: current_state.total_balance,
+            claimed_balance: current_state.claimed_balance,
         }
     }
 
@@ -93,21 +98,35 @@ impl Contract {
     }
 
     pub fn get_account(&self, account_id: AccountId) -> Option<AccountInfo> {
-        if let Some(vacc) = self.data().accounts.get(&account_id) {
-            Some(vacc.into())
-        } else {
-            None
-        }
+        self.data().accounts.get(&account_id).map(Into::into)
     }
 
-    pub fn list_accounts(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<AccountInfo> {
-        let keys = self.data().accounts.keys_as_vector();
-        let from_index = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(keys.len());
+    pub fn list_accounts(&self, from_index: Option<U64>, limit: Option<U64>) -> Vec<AccountInfo> {
+        let mut keys = self.data().accounts.keys();
+        let from_index: usize = from_index.unwrap_or(U64(0)).0 as usize;
+        let limit: usize = limit.unwrap_or(U64(keys.len() as u64)).0 as usize;
 
-        (from_index..std::cmp::min(from_index + limit, keys.len()))
-            .map(|index| self.data().accounts.get(&keys.get(index).unwrap()).unwrap())
-            .map(|va| va.into())
-            .collect()
+        let mut account_infos: Vec<AccountInfo> = Vec::new();
+        match keys.nth(from_index) {
+            None => return account_infos,
+            Some(account_id) => {
+                // Will always be Some
+                let account_info = self.data().accounts.get(account_id).unwrap();
+                account_infos.push(account_info.into());
+            }
+        }
+        let keys = keys.enumerate();
+        for (id, account) in keys {
+            if id >= limit - 1 {
+                break;
+            }
+            let account_info = self.data().accounts.get(account).unwrap();
+            account_infos.push(account_info.into());
+        }
+        account_infos
+        // (from_index..std::cmp::min(from_index + limit, keys.len() as u64))
+        //     .map(|index| self.data().accounts.get(&keys.get(index).unwrap()).unwrap())
+        //     .map(|va| va.into())
+        //     .collect()
     }
 }

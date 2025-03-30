@@ -90,7 +90,7 @@ impl Contract {
         // let __account_id: &AccountId = &self.token_account_id;
         // let __balance: NearToken = ONE_YOCTO;
         // let __gas: near_sdk::Gas = GAS_FOR_FT_TRANSFER;
-        fungible_token::Contract::ext(self.token_account_id.clone())
+        ext_fungible_token::ext(self.token_account_id.clone())
             .with_attached_deposit(ONE_YOCTO)
             .with_static_gas(GAS_FOR_FT_TRANSFER)
             .ft_transfer(receiver_id, amount.into(), memo)
@@ -170,6 +170,11 @@ impl Contract {
 #[ext_contract(ext_self)]
 trait AccountClaimCallbacks {
     fn after_ft_transfer(&mut self, account_id: AccountId, amount: Balance) -> bool;
+}
+
+#[ext_contract(ext_fungible_token)]
+trait ExtFungibleToken {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
 }
 
 // trait AccountClaimCallbacks {

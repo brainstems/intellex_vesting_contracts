@@ -2,9 +2,12 @@
 * REF session_vault contract
 *
 */
-use near_sdk::collections::UnorderedMap;
+use std::str::FromStr;
+
+// use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::{U128, U64};
-use near_sdk::{env, near, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault};
+use near_sdk::store::IterableMap;
+use near_sdk::{env, near, AccountId, BorshStorageKey, PanicOnDefault};
 
 use crate::account::VAccount;
 pub use crate::views::ContractInfo;
@@ -15,7 +18,7 @@ mod views;
 
 // near_sdk::setup_alloc!();
 
-#[near(serializers = [borsh])]
+#[near(serializers = [borsh, json])]
 #[derive(BorshStorageKey)]
 pub enum StorageKeys {
     Accounts,
@@ -35,7 +38,7 @@ pub struct ContractData {
     // already claimed balance
     claimed_balance: U128,
 
-    accounts: UnorderedMap<AccountId, VAccount>,
+    accounts: IterableMap<AccountId, VAccount>,
 }
 
 #[near(serializers = [borsh])]
@@ -52,17 +55,21 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[init]
-    pub fn new(owner_id: AccountId, token_id: AccountId) -> Self {
+    pub fn new(owner_id: String, token_id: String) -> Self {
+        let owner_id: AccountId =
+            AccountId::from_str(&owner_id).expect("ERR_INVALID_ACCOUNT_ID_OWNER");
+        let token_id: AccountId =
+            AccountId::from_str(&token_id).expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
         assert!(!env::state_exists(), "Already initialized");
         let total_balance: U128 = U128::from(0);
         let claimed_balance: U128 = U128::from(0);
         Self {
             data: VContractData::Current(ContractData {
-                owner_id: owner_id.into(),
-                token_account_id: token_id.into(),
+                owner_id,
+                token_account_id: token_id,
                 total_balance,
                 claimed_balance,
-                accounts: UnorderedMap::new(StorageKeys::Accounts),
+                accounts: IterableMap::new(StorageKeys::Accounts),
             }),
         }
     }
