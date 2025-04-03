@@ -80,6 +80,9 @@ impl Contract {
     }
 }
 
+// This needs to be changed
+// The new version doesn't seem to support what this function is doing.
+// env::set_blockchain_interface doesn't seem to be available in the smart contract runtime
 #[cfg(target_arch = "wasm32")]
 mod upgrade {
     use near_sdk::env::BLOCKCHAIN_INTERFACE;

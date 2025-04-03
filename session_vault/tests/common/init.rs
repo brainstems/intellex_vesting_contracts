@@ -59,6 +59,22 @@ static SESSION_VAULT_CONTRACT_WASM: LazyLock<Vec<u8>> = LazyLock::new(|| {
     })
 });
 
+#[tokio::test]
+pub async fn test_compile() {
+    println!("Compiling...");
+    let compiled: Vec<u8> = near_workspaces::compile_project("./").await.unwrap();
+    println!(
+        "Successfully Compiled project with {} bytes",
+        compiled.len()
+    );
+    let worker = near_workspaces::sandbox().await.unwrap();
+    let account = worker.root_account().unwrap();
+    println!("Deploying account");
+    let res = account.deploy(&compiled).await.unwrap();
+    println!("Result: {:?}", res.result);
+    assert!(res.is_success());
+}
+
 pub async fn test_token(
     // root: &UserAccount,
     worker: &Worker<impl DevNetwork>,
