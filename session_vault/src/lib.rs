@@ -2,8 +2,8 @@
 * REF session_vault contract
 *
 */
-use std::str::FromStr;
 
+use near_sdk::borsh::BorshSerialize;
 // use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::{U128, U64};
 use near_sdk::store::IterableMap;
@@ -18,8 +18,8 @@ mod views;
 
 // near_sdk::setup_alloc!();
 
-#[near(serializers = [borsh, json])]
-#[derive(BorshStorageKey)]
+#[derive(BorshSerialize, BorshStorageKey)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKeys {
     Accounts,
 }
@@ -46,8 +46,8 @@ pub enum VContractData {
     Current(ContractData),
 }
 
-#[near(contract_state)]
 #[derive(PanicOnDefault)]
+#[near(serializers=[borsh], contract_state)]
 pub struct Contract {
     data: VContractData,
 }
@@ -56,10 +56,10 @@ pub struct Contract {
 impl Contract {
     #[init]
     pub fn new(owner_id: String, token_id: String) -> Self {
-        let owner_id: AccountId =
-            AccountId::from_str(&owner_id).expect("ERR_INVALID_ACCOUNT_ID_OWNER");
-        let token_id: AccountId =
-            AccountId::from_str(&token_id).expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
+        let owner_id: AccountId = owner_id.parse().expect("ERR_INVALID_ACCOUNT_ID_OWNER");
+        // AccountId::from_str(&owner_id).expect("ERR_INVALID_ACCOUNT_ID_OWNER");
+        let token_id: AccountId = token_id.parse().expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
+        // AccountId::from_str(&token_id).expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
         assert!(!env::state_exists(), "Already initialized");
         let total_balance: U128 = U128::from(0);
         let claimed_balance: U128 = U128::from(0);

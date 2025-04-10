@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use near_sdk::{json_types::U128, AccountId, NearToken};
 // use tokio::sync::OwnedMutexGuard;
 // use near_sdk_sim::{
@@ -28,7 +30,7 @@ async fn sim_set_owner() {
         .json()
         .unwrap();
     // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
-    assert_eq!(contract_info.owner_id, *owner.id());
+    assert_eq!(&contract_info.owner_id, owner.id());
 
     // session_vault.call("set_owner")
     let res = user1
@@ -42,11 +44,13 @@ async fn sim_set_owner() {
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
 
-    assert!(failures
-        .first()
-        .unwrap()
-        .logs
-        .contains(&"ERR_NOT_ALLOWED".to_string()));
+    let failure = failures.first().unwrap();
+    let failure = format!("{failure:?}");
+    assert!(
+        failure.contains(&"ERR_NOT_ALLOWED".to_string()),
+        "Failure is {:?}",
+        failure
+    );
     // let out_come = call!(
     //     user1,
     //     session_vault.set_owner(user1.valid_account_id()),
@@ -58,11 +62,11 @@ async fn sim_set_owner() {
     let res = owner
         .call(session_vault.id(), "set_owner")
         .args_json((user1.id().to_owned(),))
-        .deposit(NearToken::from_near(1))
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.set_owner(user1.valid_account_id()),
@@ -82,7 +86,7 @@ async fn sim_set_owner() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     user1,
     //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
@@ -97,7 +101,7 @@ async fn sim_set_owner() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     user1,
     //     session_vault.set_owner(owner.valid_account_id()),
@@ -174,11 +178,13 @@ async fn sim_add_user() {
     assert!(res.is_failure());
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failures: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failures.contains(&"ERR_NOT_ALLOWED".to_string()));
+
+    let failure = format!("{:?}", failures.first());
+    assert!(
+        failure.contains("ERR_NOT_ALLOWED"),
+        "Logs is {:?}",
+        failures
+    );
     // let out_come = call!(
     //     user1,
     //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
@@ -194,7 +200,7 @@ async fn sim_add_user() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
@@ -209,17 +215,15 @@ async fn sim_add_user() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failures_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failures_logs.contains(&"ERR_ACCOUNT_IN_SESSION".to_string()),
+        failure.contains("ERR_ACCOUNT_IN_SESSION"),
         "got {:?}",
-        failures_logs
+        failure
     );
 
     // let out_come = call!(
@@ -239,17 +243,15 @@ async fn sim_add_user() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failures: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failures.contains(&"ERR_ACCOUNT_NEED_CLAIM".to_string()),
+        failure.contains("ERR_ACCOUNT_NEED_CLAIM"),
         "Logs are {:?}",
-        failures
+        failure
     );
 
     // let out_come = call!(
@@ -265,9 +267,16 @@ async fn sim_add_user() {
 async fn sim_deposit_token() {
     let (root, owner, session_vault, token) = setup_vault().await;
     let root_account = root.root_account().unwrap();
-    let other_token = test_token(&root, vec![session_vault.id().clone(), owner.id().clone()])
-        .await
-        .unwrap();
+    // let token_id = format!("{}.{}", "test_token", root_account.id());
+    let token_id = AccountId::from_str("test_token2").unwrap();
+    let other_token = test_token(
+        &root,
+        &root_account,
+        token_id,
+        vec![session_vault.id().clone(), owner.id().clone()],
+    )
+    .await
+    .unwrap();
     // let other_token = test_token(
     //     &root,
     //     "other_token".to_string(),
@@ -276,11 +285,10 @@ async fn sim_deposit_token() {
     let res = owner
         .call(other_token.id(), "mint")
         .args_json((U128::from(10000),))
-        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(owner, other_token.mint(U128(10000))).assert_success();
 
     // Not setting timestamp at the moment. Check if it causes an error.
@@ -293,7 +301,7 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res.result);
     let user1 = res.result;
     // call!(
     //     user1,
@@ -309,7 +317,7 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
@@ -330,14 +338,11 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failures_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failures_logs.contains(&"ERR_ILLEGAL_TOKEN".to_string()));
+    let failure = format!("{:?}", failures.first());
+    assert!(failure.contains("ERR_ILLEGAL_TOKEN"));
     // let out_come = call!(
     //     owner,
     //     other_token.ft_transfer_call(
@@ -363,14 +368,15 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failure_logs.contains(&"ERR_MISSING_ACCOUNT_ID".to_string()));
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
+    assert!(failure.contains("ERR_MISSING_ACCOUNT_ID"));
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -396,14 +402,15 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failure_logs.contains(&"ERR_ACCOUNT_NOT_EXIST".to_string()));
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
+    assert!(failure.contains("ERR_ACCOUNT_NOT_EXIST"));
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -430,14 +437,15 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
 
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failure_logs.contains(&"ERR_INCORRECT_AMOUNT".to_string()));
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
+    assert!(failure.contains("ERR_INCORRECT_AMOUNT"));
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -463,7 +471,7 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
 
     // call!(
     //     owner,
@@ -489,14 +497,15 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failure_logs.contains(&"ERR_ALREADY_DEPOSITED".to_string()));
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
+    assert!(failure.contains("ERR_ALREADY_DEPOSITED"));
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -519,7 +528,7 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(user1, session_vault.claim(None)).assert_success();
     let user_info = session_vault
         .view("get_account")
@@ -544,14 +553,14 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure());
+    assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
-    assert!(failure_logs.contains(&"ERR_ALREADY_DEPOSITED".to_string()));
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    assert!(failure.contains("ERR_ALREADY_DEPOSITED"));
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -580,7 +589,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res.result);
     let user1 = res.result;
     // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
 
@@ -591,7 +600,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
@@ -632,14 +641,15 @@ async fn sim_claim() {
     assert!(out_come.is_failure());
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failure_logs.contains(&"ERR_ACCOUNT_NOT_EXIST".to_string()),
+        failure.contains("ERR_ACCOUNT_NOT_EXIST"),
         "Logs is {:?}",
-        failure_logs
+        failure
     );
     // let out_come = call!(owner, session_vault.claim(Some(owner.valid_account_id())));
     // assert_eq!(get_error_count(&out_come), 1);
@@ -654,14 +664,15 @@ async fn sim_claim() {
     assert!(out_come.is_failure());
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failure_logs.contains(&"ERR_NOT_ENOUGH_BALANCE".to_string()),
+        failure.contains("ERR_NOT_ENOUGH_BALANCE"),
         "Logs is {:?}",
-        failure_logs
+        failure
     );
     // let out_come = call!(owner, session_vault.claim(Some(user1.valid_account_id())));
 
@@ -680,7 +691,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -712,21 +723,22 @@ async fn sim_claim() {
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
 
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failure_logs.contains(&"The account user1 is not registered".to_string()),
+        failure.contains("The account user1 is not registered"),
         "Logs is {:?}",
-        failure_logs
+        failure
     );
 
     // let out_come = call!(user1, session_vault.claim(None));
     // assert_eq!(get_error_count(&out_come), 1);
     // assert!(get_error_status(&out_come).contains("The account user1 is not registered"));
 
-    println!("{failure_logs:?}");
+    // println!("{failure_logs:?}");
     // println!("{:?}", get_logs(&out_come));
 
     let user_info = session_vault
@@ -747,7 +759,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     user1,
     //     token.storage_deposit(None, None),
@@ -761,7 +773,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(user1, session_vault.claim(None)).assert_success();
 
     let contract_info = session_vault
@@ -803,7 +815,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(user1.valid_account_id(), 20, 20, 2, 100.into()),
@@ -826,14 +838,15 @@ async fn sim_claim() {
     assert!(out_come.is_failure());
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
-    let failure_logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|failure| failure.logs.clone())
-        .collect();
+    // let failure_logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|failure| failure.logs.clone())
+    //     .collect();
+    let failure = format!("{:?}", failures.first());
     assert!(
-        failure_logs.contains(&"ERR_INCORRECT_AMOUNT".to_string()),
+        failure.contains("ERR_INCORRECT_AMOUNT"),
         "Logs is {:?}",
-        failure_logs
+        failure
     );
     // let out_come = call!(
     //     owner,
@@ -860,7 +873,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -882,7 +895,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(user1, session_vault.claim(None)).assert_success();
 
     let balance = token
@@ -904,7 +917,7 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(owner, session_vault.claim(Some(user1.valid_account_id()))).assert_success();
 
     let balance: U128 = token

@@ -1,5 +1,8 @@
 // use std::convert::TryFrom;
 
+use std::str::FromStr;
+
+// use cargo_near_build::BuildOpts;
 use near_sdk::AccountId;
 use near_sdk::{json_types::U128, NearToken};
 // use near_sdk_sim::{call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount};
@@ -13,56 +16,111 @@ use near_workspaces::network::Sandbox;
 
 // use cargo_near_build::BuildOpts;
 use near_workspaces::{Account, Contract, DevNetwork, Worker};
-use std::sync::LazyLock;
+use tokio::sync::OnceCell;
+// use std::sync::LazyLock;
 
-const TEST_TOKEN_WASM_PATH: &str = "../res/test_token.wasm";
-const SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
+// const TEST_TOKEN_WASM_PATH: &str = "../res/test_token.wasm";
+// const SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
 
 // near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
 //     TEST_TOKEN_WASM_BYTES => "../res/test_token.wasm",
 //     SESSION_VAULT_WASM_BYTES => "../res/session_vault.wasm",
 // }
 
-static TEST_TOKEN_CONTRACT_WASM: LazyLock<Vec<u8>> = LazyLock::new(|| {
-    // let artifact = cargo_near_build::build(BuildOpts {
+// static TEST_TOKEN_CONTRACT_WASM: LazyLock<Vec<u8>> = LazyLock::new(|| {
+//     // let artifact = cargo_near_build::build(BuildOpts {
+//     //     no_abi: true,
+//     //     no_embed_abi: true,
+//     //     // manifest_path: Some(TEST_TOKEN_WASM_PATH.into()),
+//     //     out_dir: Some("../../res/".into()),
+//     //     ..Default::default()
+//     // })
+//     // .expect("Could not compile Test Token contract for tests");
+
+//     std::fs::read(TEST_TOKEN_WASM_PATH).unwrap_or_else(|err| {
+//         panic!(
+//             "Could not read Fungible Token WASM file from {}\nErr: {err}",
+//             TEST_TOKEN_WASM_PATH,
+//         )
+//     })
+// });
+
+// static SESSION_VAULT_CONTRACT_WASM: LazyLock<Vec<u8>> = LazyLock::new(|| {
+//     // let artifact = cargo_near_build::build(BuildOpts {
+//     //     no_abi: true,
+//     //     no_embed_abi: true,
+//     //     // out_dir: Some(SESSION_VAULT_WASM_PATH.into()),
+//     //     out_dir: Some("../../res/".into()),
+//     //     ..Default::default()
+//     // })
+//     // .expect("Could not compile Session Vault contract for tests");
+
+//     std::fs::read(SESSION_VAULT_WASM_PATH).unwrap_or_else(|err| {
+//         panic!(
+//             "Could not read Session Vault WASM file from {}\nErr: {err}",
+//             SESSION_VAULT_WASM_PATH,
+//         )
+//     })
+// });
+
+static TEST_TOKEN_CONTRACT_WASM: OnceCell<Vec<u8>> = OnceCell::const_new();
+static SESSION_VAULT_CONTRACT_WASM: OnceCell<Vec<u8>> = OnceCell::const_new();
+
+async fn test_token_contract_wasm() -> Vec<u8> {
+    // let artifact: cargo_near_build::BuildArtifact = cargo_near_build::build(BuildOpts {
     //     no_abi: true,
     //     no_embed_abi: true,
-    //     // manifest_path: Some(TEST_TOKEN_WASM_PATH.into()),
-    //     out_dir: Some("../../res/".into()),
+    //     // out_dir: Some("../../../res/".into()),
+    //     out_dir: Some("./res/".into()),
+    //     // manifest_path: Some("../../../test_token/".into()),
+    //     // manifest_path: Some("./test_token/".into()),
+    //     // manifest_path: Some("./test_token/Cargo.toml".into()),
+    //     manifest_path: Some("../test_token/Cargo.toml".into()),
     //     ..Default::default()
     // })
-    // .expect("Could not compile Test Token contract for tests");
-
-    std::fs::read(TEST_TOKEN_WASM_PATH).unwrap_or_else(|err| {
+    // .expect("Could not compile test token contract for tests");
+    std::fs::read("../res/test_token.wasm").unwrap_or_else(|err| {
         panic!(
-            "Could not read Fungible Token WASM file from {}\nErr: {err}",
-            TEST_TOKEN_WASM_PATH,
+            "Could not read test token WASM file from {}\nErr: {err}",
+            "../res/test_token.wasm"
         )
     })
-});
+    // near_workspaces::compile_project("./test_token/")
+    //     .await
+    //     .unwrap()
+}
 
-static SESSION_VAULT_CONTRACT_WASM: LazyLock<Vec<u8>> = LazyLock::new(|| {
-    // let artifact = cargo_near_build::build(BuildOpts {
+async fn session_vault_contract_wasm() -> Vec<u8> {
+    // let artifact: cargo_near_build::BuildArtifact = cargo_near_build::build(BuildOpts {
     //     no_abi: true,
     //     no_embed_abi: true,
-    //     // out_dir: Some(SESSION_VAULT_WASM_PATH.into()),
-    //     out_dir: Some("../../res/".into()),
+    //     // out_dir: Some("../../../res/".into()),
+    //     // manifest_path: Some("../../".into()),
+    //     out_dir: Some("./res/".into()),
+    //     // manifest_path: Some("./session_vault".into()),
+    //     // manifest_path: Some("./session_vault/Cargo.toml".into()),
+    //     manifest_path: Some("./Cargo.toml".into()),
     //     ..Default::default()
     // })
     // .expect("Could not compile Session Vault contract for tests");
-
-    std::fs::read(SESSION_VAULT_WASM_PATH).unwrap_or_else(|err| {
+    std::fs::read("../res/session_vault.wasm").unwrap_or_else(|err| {
         panic!(
             "Could not read Session Vault WASM file from {}\nErr: {err}",
-            SESSION_VAULT_WASM_PATH,
+            "../res/session_vault.wasm"
         )
     })
-});
+    // near_workspaces::compile_project("./session_vault/")
+    //     .await
+    //     .unwrap()
+}
 
 #[tokio::test]
 pub async fn test_compile() {
     println!("Compiling...");
-    let compiled: Vec<u8> = near_workspaces::compile_project("./").await.unwrap();
+    // let compiled: Vec<u8> = near_workspaces::compile_project("./").await.unwrap();
+    let compiled = TEST_TOKEN_CONTRACT_WASM
+        .get_or_init(test_token_contract_wasm)
+        .await;
     println!(
         "Successfully Compiled project with {} bytes",
         compiled.len()
@@ -70,20 +128,35 @@ pub async fn test_compile() {
     let worker = near_workspaces::sandbox().await.unwrap();
     let account = worker.root_account().unwrap();
     println!("Deploying account");
-    let res = account.deploy(&compiled).await.unwrap();
+    let res = account.deploy(compiled).await.unwrap();
     println!("Result: {:?}", res.result);
     assert!(res.is_success());
 }
 
 pub async fn test_token(
     // root: &UserAccount,
-    worker: &Worker<impl DevNetwork>,
+    _worker: &Worker<impl DevNetwork>,
+    root: &Account,
     // root: &Account,
-    // token_id: AccountId,
+    token_id: AccountId,
     accounts_to_register: Vec<AccountId>,
     // ) -> ContractAccount<TestToken> {
 ) -> anyhow::Result<Contract> {
-    let t = worker.dev_deploy(&TEST_TOKEN_CONTRACT_WASM).await?;
+    let test_token_contract_wasm = TEST_TOKEN_CONTRACT_WASM
+        .get_or_init(test_token_contract_wasm)
+        .await;
+    let res = root
+        .create_subaccount(token_id.as_ref())
+        .initial_balance(NearToken::from_near(100))
+        .transact()
+        .await
+        .unwrap();
+    assert!(res.is_success(), "Res is {:?}", res.details);
+    let t = res.result;
+    let res = t.deploy(test_token_contract_wasm).await.unwrap();
+    assert!(res.is_success());
+    let t = res.result;
+
     // let t = deploy!(
     //     contract: TestToken,
     //     contract_id: token_id,
@@ -92,18 +165,26 @@ pub async fn test_token(
     // );
     // call!(root, t.new()).assert_success();
 
-    let res = t.call("new").args_json(()).max_gas().transact().await?;
-    assert!(res.is_success());
+    let res = root
+        .call(t.id(), "new")
+        .args_json(())
+        .max_gas()
+        .transact()
+        .await?;
+
+    // let res = t.call("new").args_json(()).max_gas().transact().await?;
+    assert!(res.is_success(), "Res is {:?}", res);
 
     for account_id in accounts_to_register {
-        let res = t
-            .call("storage_deposit")
+        println!("Calling storage_deposit for {account_id}");
+        let res = root
+            .call(t.id(), "storage_deposit")
             .args_json((Some(account_id), Option::<bool>::None))
             .deposit(NearToken::from_near(1))
             .transact()
             .await?;
 
-        assert!(res.is_success());
+        assert!(res.is_success(), "Res is {:?}", res);
         // call!(
         //     root,
         //     t.storage_deposit(Some(to_va(account_id)), None),
@@ -153,6 +234,9 @@ pub async fn balance_of(
 
 pub async fn setup_vault() -> (Worker<Sandbox>, Account, Contract, Contract) {
     // let root = init_simulator(None);
+    let defi_contract_bytes = SESSION_VAULT_CONTRACT_WASM
+        .get_or_init(session_vault_contract_wasm)
+        .await;
     let root = near_workspaces::sandbox().await.unwrap();
     let root_account = root.root_account().unwrap();
     let res = root_account
@@ -161,7 +245,7 @@ pub async fn setup_vault() -> (Worker<Sandbox>, Account, Contract, Contract) {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "Res details is {:?}", res.details);
     let owner = res.unwrap();
     // let vault = root
     //     .dev_deploy(SESSION_VAULT_WASM_BYTES.as_bytes())
@@ -174,14 +258,13 @@ pub async fn setup_vault() -> (Worker<Sandbox>, Account, Contract, Contract) {
         .await
         .unwrap()
         .result;
-    let vault = vault
-        .deploy(&SESSION_VAULT_CONTRACT_WASM)
-        .await
-        .unwrap()
-        .result;
+    let vault = vault.deploy(defi_contract_bytes).await.unwrap().result;
     let res = vault
         .call("new")
-        .args_json(("owner".to_string(), "test_token".to_string()))
+        .args_json((
+            "owner.test.near".to_string(),
+            "test_token.test.near".to_string(),
+        ))
         .max_gas()
         .transact()
         .await
@@ -200,23 +283,36 @@ pub async fn setup_vault() -> (Worker<Sandbox>, Account, Contract, Contract) {
     //         to_va("test_token".to_string())
     //     )
     // );
+    let token_id = AccountId::from_str("test_token").unwrap();
 
-    let token = test_token(&root, vec![vault.id().clone(), owner.id().clone()])
-        .await
-        .unwrap();
+    let token = test_token(
+        &root,
+        &root_account,
+        token_id,
+        vec![vault.id().clone(), owner.id().clone()],
+    )
+    .await
+    .unwrap();
     // let token = test_token(
     //     &root,
     //     "test_token".to_string(),
     //     vec!["session_vault".to_string(), owner.account_id()],
     // );
 
-    let res = token
-        .call("mint")
+    let res = owner
+        .call(token.id(), "mint")
         .args_json((U128(10000),))
         .max_gas()
         .transact()
         .await
         .unwrap();
+    // let res = token
+    //     .call("mint")
+    //     .args_json((U128(10000),))
+    //     .max_gas()
+    //     .transact()
+    //     .await
+    //     .unwrap();
     assert!(res.is_success());
     // call!(owner, token.mint(U128(10000))).assert_success();
 

@@ -1,11 +1,13 @@
-use std::sync::LazyLock;
+// use std::sync::LazyLock;
 
-use cargo_near_build::BuildOpts;
+// use cargo_near_build::BuildOpts;
 // use near_sdk_sim::{deploy, init_simulator, to_yocto, view};
 
+// use cargo_near_build::BuildOpts;
 use near_sdk::NearToken;
 use near_workspaces::{network::Sandbox, Account, Contract, Worker};
 use session_vault::ContractInfo;
+use tokio::sync::OnceCell;
 
 // Both are the same path
 // near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -13,45 +15,73 @@ use session_vault::ContractInfo;
 //     SESSION_VAULT_WASM_BYTES => "../res/session_vault.wasm",
 // }
 
-pub const PREV_SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
-pub const SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
+// pub const PREV_SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
+// pub const SESSION_VAULT_WASM_PATH: &str = "../res/session_vault.wasm";
 
-static PREV_SESSION_VAULT_WASM_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| {
-    let artifact = cargo_near_build::build(BuildOpts {
-        no_abi: true,
-        no_embed_abi: true,
-        manifest_path: Some(PREV_SESSION_VAULT_WASM_PATH.into()),
-        ..Default::default()
-    })
-    .expect("Could not compile Previous Session Vault contract for tests");
+// static PREV_SESSION_VAULT_WASM_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| {
+//     let artifact = cargo_near_build::build(BuildOpts {
+//         no_abi: true,
+//         no_embed_abi: true,
+//         manifest_path: Some(PREV_SESSION_VAULT_WASM_PATH.into()),
+//         ..Default::default()
+//     })
+//     .expect("Could not compile Previous Session Vault contract for tests");
 
-    std::fs::read(&artifact.path).unwrap_or_else(|err| {
-        panic!(
-            "Could not read Previous Session WASM file from {}\nErr: {err}",
-            artifact.path,
-        )
-    })
-});
+//     std::fs::read(&artifact.path).unwrap_or_else(|err| {
+//         panic!(
+//             "Could not read Previous Session WASM file from {}\nErr: {err}",
+//             artifact.path,
+//         )
+//     })
+// });
 
-static SESSION_VAULT_WASM_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| {
-    let artifact = cargo_near_build::build(BuildOpts {
-        no_abi: true,
-        no_embed_abi: true,
-        manifest_path: Some(SESSION_VAULT_WASM_PATH.into()),
-        ..Default::default()
-    })
-    .expect("Could not compile Session Vault contract for tests");
+// static SESSION_VAULT_WASM_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| {
+//     let artifact = cargo_near_build::build(BuildOpts {
+//         no_abi: true,
+//         no_embed_abi: true,
+//         manifest_path: Some(SESSION_VAULT_WASM_PATH.into()),
+//         ..Default::default()
+//     })
+//     .expect("Could not compile Session Vault contract for tests");
 
-    std::fs::read(&artifact.path).unwrap_or_else(|err| {
+//     std::fs::read(&artifact.path).unwrap_or_else(|err| {
+//         panic!(
+//             "Could not read Session Vault WASM file from {}\nErr: {err}",
+//             artifact.path,
+//         )
+//     })
+// });
+
+static SESSION_VAULT_WASM_BYTES: OnceCell<Vec<u8>> = OnceCell::const_new();
+
+async fn session_vault_wasm_bytes() -> Vec<u8> {
+    // near_workspaces::compile_project("./session_vault/")
+    //     .await
+    //     .unwrap()
+    // let artifact: cargo_near_build::BuildArtifact = cargo_near_build::build(BuildOpts {
+    //     no_abi: true,
+    //     no_embed_abi: true,
+    //     // out_dir: Some("../../res/".into()),
+    //     // manifest_path: Some("../".into()),
+    //     out_dir: Some("./res/".into()),
+    //     // manifest_path: Some("./session_vault/Cargo.toml".into()),
+    //     manifest_path: Some("./Cargo.toml".into()),
+    //     ..Default::default()
+    // })
+    // .expect("Could not compile Session Vault contract for tests");
+    std::fs::read("../res/session_vault.wasm").unwrap_or_else(|err| {
         panic!(
             "Could not read Session Vault WASM file from {}\nErr: {err}",
-            artifact.path,
+            "../session_vault.wasm"
         )
     })
-});
+}
 
 #[tokio::test]
 async fn test_upgrade() {
+    let session_vault_wasm_bytes = SESSION_VAULT_WASM_BYTES
+        .get_or_init(session_vault_wasm_bytes)
+        .await;
     let root: Worker<Sandbox> = near_workspaces::sandbox().await.unwrap();
     let root_account: Account = root.root_account().unwrap();
     // let root = init_simulator(None);
@@ -64,10 +94,7 @@ async fn test_upgrade() {
     assert!(test_user.is_success());
     let test_user = test_user.result;
     // let test_user = root.create_user("test".to_string(), to_yocto("100"));
-    let session_vault = root_account
-        .deploy(&PREV_SESSION_VAULT_WASM_BYTES)
-        .await
-        .unwrap();
+    let session_vault = root_account.deploy(session_vault_wasm_bytes).await.unwrap();
     assert!(session_vault.is_success());
     let session_vault: Contract = session_vault.result;
     // Maybe include gas?
@@ -117,7 +144,7 @@ async fn test_upgrade() {
 
     let res = root_account
         .call(session_vault.id(), "upgrade")
-        .args_json((&SESSION_VAULT_WASM_BYTES[..],))
+        .args_json((&session_vault_wasm_bytes[..],))
         .max_gas()
         .transact()
         .await
