@@ -96,8 +96,8 @@ async fn sim_set_owner() {
 
     let res = user1
         .call(session_vault.id(), "set_owner")
-        .args_json(owner.id())
-        .deposit(NearToken::from_near(1))
+        .args_json((owner.id(),))
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
@@ -119,16 +119,24 @@ async fn sim_set_owner() {
     assert!(outcome.is_failure());
     let failures = outcome.failures();
     assert_eq!(failures.len(), 1);
-    let logs: Vec<String> = failures
-        .into_iter()
-        .flat_map(|err| err.logs.clone())
-        .collect();
-    let filtered: Vec<String> = logs
-        .clone()
-        .into_iter()
-        .filter(|log| log.contains(&"ERR_NOT_ALLOWED".to_string()))
-        .collect();
-    assert!(!filtered.is_empty(), "Logs is: {:?}", logs);
+    // let logs: Vec<String> = failures
+    //     .into_iter()
+    //     .flat_map(|err| err.logs.clone())
+    //     .collect();
+    // let filtered: Vec<String> = logs
+    //     .clone()
+    //     .into_iter()
+    //     .filter(|log| log.contains(&"ERR_NOT_ALLOWED".to_string()))
+    //     .collect();
+    let failure = failures.first().unwrap();
+    let failure = format!("{failure:?}");
+
+    // assert!(!filtered.is_empty(), "Logs is: {:?}", logs);
+    assert!(
+        failure.contains("ERR_NOT_ALLOWED"),
+        "Failure is {}",
+        failure
+    );
 
     // let out_come = call!(
     //     user1,
@@ -209,7 +217,7 @@ async fn sim_add_user() {
     // .assert_success();
 
     let res = owner
-        .call(user1.id(), "add_account")
+        .call(session_vault.id(), "add_account")
         .args_json((user1.id(), 10, 10, 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
@@ -334,7 +342,8 @@ async fn sim_deposit_token() {
             Option::<String>::None,
             user1.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .deposit(NearToken::from_yoctonear(1))
+        .max_gas()
         .transact()
         .await
         .unwrap();
@@ -342,7 +351,11 @@ async fn sim_deposit_token() {
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
     let failure = format!("{:?}", failures.first());
-    assert!(failure.contains("ERR_ILLEGAL_TOKEN"));
+    assert!(
+        failure.contains("ERR_ILLEGAL_TOKEN"),
+        "Failure is {:?}",
+        failure
+    );
     // let out_come = call!(
     //     owner,
     //     other_token.ft_transfer_call(
@@ -594,7 +607,7 @@ async fn sim_claim() {
     // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
 
     let res = owner
-        .call(user1.id(), "add_account")
+        .call(session_vault.id(), "add_account")
         .args_json((user1.id(), 10, 10, 1, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
@@ -687,7 +700,8 @@ async fn sim_claim() {
             Option::<String>::None,
             user1.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
@@ -716,6 +730,7 @@ async fn sim_claim() {
     let out_come = user1
         .call(session_vault.id(), "claim")
         .args_json((Option::<AccountId>::None,))
+        .max_gas()
         .transact()
         .await
         .unwrap();
@@ -729,8 +744,8 @@ async fn sim_claim() {
     //     .collect();
     let failure = format!("{:?}", failures.first());
     assert!(
-        failure.contains("The account user1 is not registered"),
-        "Logs is {:?}",
+        failure.contains("The account user1.test.near is not registered"),
+        "Failures is {:?}",
         failure
     );
 
