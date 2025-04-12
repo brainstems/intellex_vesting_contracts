@@ -201,9 +201,15 @@ async fn sim_add_user() {
     // assert_eq!(get_error_count(&out_come), 1);
     // assert!(get_error_status(&out_come).contains("ERR_NOT_ALLOWED"));
 
+    // Get current timestamp
+    let timestamp = root.view_block().await.unwrap().timestamp();
+    println!("Current Timestamp is {timestamp}");
+    let timestamp = timestamp / 10u64.pow(9);
+    println!("Current Timestamp in seconds is {timestamp}");
+
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), timestamp + 1, 1, 2, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -216,9 +222,13 @@ async fn sim_add_user() {
     // )
     // .assert_success();
 
+    let timestamp = root.view_block().await.unwrap().timestamp();
+    println!("Current Timestamp is {timestamp}");
+    let timestamp = timestamp / 10u64.pow(9);
+    println!("Current Timestamp in seconds is {timestamp}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), timestamp, 1, 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -244,6 +254,13 @@ async fn sim_add_user() {
 
     // Not setting block timestamp, see if it causes an error
     // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(20);
+
+    // Advancing block by 4 seconds so that there is enough time for session to complete
+    root.fast_forward(4).await.unwrap();
+    let timestamp = root.view_block().await.unwrap().timestamp();
+    println!("After waiting Timestamp is {timestamp}");
+    let timestamp = timestamp / 10u64.pow(9);
+    println!("Current Timestamp in seconds is {timestamp}");
     let res = owner
         .call(session_vault.id(), "add_account")
         .args_json((user1.id(), 10, 10, 1, U128::from(100)))
@@ -276,7 +293,7 @@ async fn sim_deposit_token() {
     let (root, owner, session_vault, token) = setup_vault().await;
     let root_account = root.root_account().unwrap();
     // let token_id = format!("{}.{}", "test_token", root_account.id());
-    let token_id = AccountId::from_str("test_token2").unwrap();
+    let token_id = AccountId::from_str("other_token").unwrap();
     let other_token = test_token(
         &root,
         &root_account,
@@ -311,6 +328,14 @@ async fn sim_deposit_token() {
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res.result);
     let user1 = res.result;
+    let res = user1
+        .call(token.id(), "storage_deposit")
+        .args_json((Option::<AccountId>::None, Option::<bool>::None))
+        .deposit(NearToken::from_near(1))
+        .transact()
+        .await
+        .unwrap();
+    assert!(res.is_success(), "Res is {:?}", res);
     // call!(
     //     user1,
     //     token.storage_deposit(None, None),
@@ -333,6 +358,12 @@ async fn sim_deposit_token() {
     // )
     // .assert_success();
 
+    println!(
+        "owner id is {}\nother token id is {}\nuser1 id is {}",
+        owner.id(),
+        other_token.id(),
+        user1.id(),
+    );
     // Not sure if this None is really from an Option<String>
     let res = owner
         .call(other_token.id(), "ft_transfer_call")
@@ -384,10 +415,6 @@ async fn sim_deposit_token() {
     assert!(res.is_failure(), "Res is {:?}", res);
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
-    // let failure_logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|failure| failure.logs.clone())
-    //     .collect();
     let failure = format!("{:?}", failures.first());
     assert!(failure.contains("ERR_MISSING_ACCOUNT_ID"));
     // let out_come = call!(
@@ -654,10 +681,7 @@ async fn sim_claim() {
     assert!(out_come.is_failure());
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
-    // let failure_logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|failure| failure.logs.clone())
-    //     .collect();
+
     let failure = format!("{:?}", failures.first());
     assert!(
         failure.contains("ERR_ACCOUNT_NOT_EXIST"),
@@ -677,10 +701,7 @@ async fn sim_claim() {
     assert!(out_come.is_failure());
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
-    // let failure_logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|failure| failure.logs.clone())
-    //     .collect();
+
     let failure = format!("{:?}", failures.first());
     assert!(
         failure.contains("ERR_NOT_ENOUGH_BALANCE"),
@@ -738,10 +759,6 @@ async fn sim_claim() {
     let failures = out_come.failures();
     assert_eq!(failures.len(), 1);
 
-    // let failure_logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|failure| failure.logs.clone())
-    //     .collect();
     let failure = format!("{:?}", failures.first());
     assert!(
         failure.contains("The account user1.test.near is not registered"),
@@ -752,9 +769,6 @@ async fn sim_claim() {
     // let out_come = call!(user1, session_vault.claim(None));
     // assert_eq!(get_error_count(&out_come), 1);
     // assert!(get_error_status(&out_come).contains("The account user1 is not registered"));
-
-    // println!("{failure_logs:?}");
-    // println!("{:?}", get_logs(&out_come));
 
     let user_info = session_vault
         .view("get_account")
