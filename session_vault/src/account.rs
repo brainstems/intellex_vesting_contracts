@@ -186,25 +186,34 @@ impl Contract {
         account.last_claim_session += sessions;
         account.claimed_amount = (account.claimed_amount.0 + amount).into();
 
-        let data_mut = self.data_mut();
-        let claimed_balance = data_mut.claimed_balance.0 + amount;
+        let claimed_balance = self.data().claimed_balance.0 + amount;
+        self.data_mut().claimed_balance = claimed_balance.into();
+        self.data_mut()
+            .accounts
+            .insert(account_id.clone(), account.into());
         // self.data_mut().claimed_balance += amount;
-        data_mut.claimed_balance = claimed_balance.into();
-        // self.data_mut()
-        data_mut.accounts.insert(account_id.clone(), account.into());
-        ext_fungible_token::ext(self.data().token_account_id.clone())
-            .with_attached_deposit(ONE_YOCTO)
-            .with_static_gas(GAS_FOR_FT_TRANSFER)
-            .ft_transfer(
-                account_id.clone(),
-                amount.into(),
-                Some(format!(
-                    "Claiming unlocked {} balance from {}",
-                    amount,
-                    env::current_account_id()
-                )),
-            )
-            .into()
+
+        // data_mut.accounts.insert(account_id.clone(), account.into());
+        PromiseOrValue::Promise(
+            ext_fungible_token::ext(self.data().token_account_id.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .with_static_gas(GAS_FOR_FT_TRANSFER)
+                .ft_transfer(
+                    account_id.clone(),
+                    amount.into(),
+                    Some(format!(
+                        "Claiming unlocked {} balance from {}",
+                        amount,
+                        env::current_account_id()
+                    )),
+                )
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_attached_deposit(NO_DEPOSIT)
+                        .with_static_gas(GAS_FOR_AFTER_FT_TRANSFER)
+                        .after_ft_transfer(account_id, amount.into()),
+                ),
+        )
         // ext_fungible_token::ft_transfer(
         //     account_id.clone(),
         //     amount.into(),
@@ -241,12 +250,18 @@ impl Contract {
             account.last_claim_session -= times;
             account.claimed_amount = (account.claimed_amount.0 - amount.0).into();
 
-            let data_mut = self.data_mut();
-            let claimed_balance = data_mut.claimed_balance.0 - amount.0;
-            // self.data_mut().claimed_balance -= amount.0;
-            data_mut.claimed_balance = claimed_balance.into();
-            // self.data_mut()
-            data_mut.accounts.insert(account_id.clone(), account.into());
+            let claimed_balance = self.data().claimed_balance.0 - amount.0;
+            self.data_mut().claimed_balance = U128(claimed_balance);
+            self.data_mut()
+                .accounts
+                .insert(account_id.clone(), account.into());
+
+            // let data_mut = self.data_mut();
+            // let claimed_balance = data_mut.claimed_balance.0 - amount.0;
+            // // self.data_mut().claimed_balance -= amount.0;
+            // data_mut.claimed_balance = claimed_balance.into();
+            // // self.data_mut()
+            // data_mut.accounts.insert(account_id.clone(), account.into());
             log!(
                 "Account claim failed and rollback, account is {}, balance is {}",
                 account_id,

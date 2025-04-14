@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use common::utils::wait_seconds;
 use near_sdk::{json_types::U128, AccountId, NearToken};
 // use tokio::sync::OwnedMutexGuard;
 // use near_sdk_sim::{
@@ -378,15 +379,21 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_failure(), "Res is {:?}", res);
-    let failures = res.failures();
-    assert_eq!(failures.len(), 1);
-    let failure = format!("{:?}", failures.first());
-    assert!(
-        failure.contains("ERR_ILLEGAL_TOKEN"),
-        "Failure is {:?}",
-        failure
-    );
+    // assert!(res.is_failure(), "Res is {:?}", res);
+    // let failures = res.failures();
+    // assert_eq!(failures.len(), 1);
+    // let failure = format!("{:?}", failures.first());
+    // assert!(
+    //     failure.contains("ERR_ILLEGAL_TOKEN"),
+    //     "Failure is {:?}",
+    //     failure
+    // );
+    let receipts = res.failures();
+    assert_eq!(receipts.len(), 1, "receipts is {:#?}", receipts);
+    let first = receipts.first().unwrap();
+    let first = format!("{first:#?}");
+    assert!(first.contains("ERR_ILLEGAL_TOKEN"), "first is {:#?}", first);
+
     // let out_come = call!(
     //     owner,
     //     other_token.ft_transfer_call(
@@ -408,7 +415,7 @@ async fn sim_deposit_token() {
             Option::<String>::None,
             "".to_string(),
         ))
-        .deposit(NearToken::from_near(1))
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
@@ -416,7 +423,11 @@ async fn sim_deposit_token() {
     let failures = res.failures();
     assert_eq!(failures.len(), 1);
     let failure = format!("{:?}", failures.first());
-    assert!(failure.contains("ERR_MISSING_ACCOUNT_ID"));
+    assert!(
+        failure.contains("ERR_MISSING_ACCOUNT_ID"),
+        "failure is {:#?}",
+        failure
+    );
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -633,9 +644,17 @@ async fn sim_claim() {
     let user1 = res.result;
     // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
 
+    let timestamp_1 = root
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec();
+    let timestamp_1 = timestamp_1 / 10_u64.pow(9);
+    println!("timestamp_1 is {timestamp_1}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128(100)))
+        .args_json((user1.id(), timestamp_1.max(2) - 2, 2, 1, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -661,6 +680,20 @@ async fn sim_claim() {
     // Not setting block timestamp for now to see if it still works
     // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(20);
 
+    let timestamp_2 = root
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec();
+    let timestamp_2 = timestamp_2 / 10_u64.pow(9);
+    println!("timestamp_2 is {timestamp_2}");
+
+    // Advancing time until the claim was yielded
+    let wait: u64 = 5 - (timestamp_2 - timestamp_1).min(5) + 1;
+    println!("Waiting {wait} seconds");
+    root.fast_forward(wait).await.unwrap();
+
     let user_info: AccountInfo = session_vault
         .view("get_account")
         .args_json((user1.id(),))
@@ -670,7 +703,11 @@ async fn sim_claim() {
         .unwrap();
     // let user_info =
     //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
-    assert_eq!(user_info.unclaimed_amount.0, 100);
+    assert_eq!(
+        user_info.unclaimed_amount.0, 100,
+        "user_info is {:?}",
+        user_info
+    );
 
     let out_come = owner
         .call(session_vault.id(), "claim")
@@ -755,16 +792,32 @@ async fn sim_claim() {
         .transact()
         .await
         .unwrap();
-    assert!(out_come.is_failure());
-    let failures = out_come.failures();
-    assert_eq!(failures.len(), 1);
-
-    let failure = format!("{:?}", failures.first());
-    assert!(
-        failure.contains("The account user1.test.near is not registered"),
-        "Failures is {:?}",
-        failure
+    // Since one of the calls failed, it will be successful while returning false
+    let receipt_failures = out_come.receipt_failures();
+    assert_eq!(
+        receipt_failures.len(),
+        1,
+        "receipt_failures is {:#?}",
+        receipt_failures
     );
+    let first = receipt_failures.first().unwrap();
+    let first = format!("{first:?}");
+    assert!(
+        first.contains("Smart contract panicked: The account user1.test.near is not registered"),
+        "first is {}",
+        first
+    );
+
+    // assert!(out_come.is_failure(), "out_come is {:#?}", out_come);
+    // let failures = out_come.failures();
+    // assert_eq!(failures.len(), 1);
+
+    // let failure = format!("{:?}", failures.first());
+    // assert!(
+    //     failure.contains("The account user1.test.near is not registered"),
+    //     "Failure is {:?}",
+    //     failure
+    // );
 
     // let out_come = call!(user1, session_vault.claim(None));
     // assert_eq!(get_error_count(&out_come), 1);
@@ -779,7 +832,11 @@ async fn sim_claim() {
         .unwrap();
     // let user_info =
     //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
-    assert_eq!(user_info.unclaimed_amount.0, 100);
+    assert_eq!(
+        user_info.unclaimed_amount.0, 100,
+        "user_info is {:?}",
+        user_info
+    );
 
     let res = user1
         .call(token.id(), "storage_deposit")
@@ -799,6 +856,7 @@ async fn sim_claim() {
     let res = user1
         .call(session_vault.id(), "claim")
         .args_json((Option::<AccountId>::None,))
+        .max_gas()
         .transact()
         .await
         .unwrap();
@@ -837,9 +895,17 @@ async fn sim_claim() {
     assert_eq!(100, user1_balance.0);
     // assert_eq!(100, balance_of(&token, &user1.account_id()));
 
+    let timestamp: u64 = root
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec()
+        / 10_u64.pow(9);
+
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 20, 20, 2, U128(100)))
+        .args_json((user1.id(), timestamp.max(1) - 1, 5, 2, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -852,6 +918,21 @@ async fn sim_claim() {
     // )
     // .assert_success();
 
+    // Advance 2 seconds to trigger updates
+    // println!("timestamp before fast forward is {timestamp}");
+    // root.fast_forward(8).await.unwrap();
+    // let timestamp = root
+    //     .view_block()
+    //     .await
+    //     .unwrap()
+    //     .header()
+    //     .timestamp_nanosec()
+    //     / 10_u64.pow(9);
+    // println!("timestamp after fast forward is {timestamp}");
+
+    // let timestamp = wait_seconds(&root, 6).await;
+    // println!("Finished waiting at {timestamp}");
+
     let out_come = owner
         .call(token.id(), "ft_transfer_call")
         .args_json((
@@ -860,23 +941,26 @@ async fn sim_claim() {
             Option::<String>::None,
             user1.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .deposit(NearToken::from_yoctonear(1))
+        .max_gas()
         .transact()
         .await
         .unwrap();
-    assert!(out_come.is_failure());
-    let failures = out_come.failures();
-    assert_eq!(failures.len(), 1);
-    // let failure_logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|failure| failure.logs.clone())
-    //     .collect();
-    let failure = format!("{:?}", failures.first());
-    assert!(
-        failure.contains("ERR_INCORRECT_AMOUNT"),
-        "Logs is {:?}",
-        failure
+    let receipt_failures = out_come.receipt_failures();
+    assert_eq!(
+        receipt_failures.len(),
+        1,
+        "receipt_failures is {:#?}",
+        receipt_failures
     );
+    let first = receipt_failures.first().unwrap();
+    let first = format!("{:#?}", first);
+    assert!(
+        first.contains("ERR_INCORRECT_AMOUNT"),
+        "first is {:#?}",
+        first
+    );
+
     // let out_come = call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -892,13 +976,14 @@ async fn sim_claim() {
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
+        .max_gas()
         .args_json((
             session_vault.id(),
             U128(200),
             Option::<String>::None,
             user1.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
@@ -918,14 +1003,40 @@ async fn sim_claim() {
     // Not setting block timestamp for now
     // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(40);
 
+    // let timestamp = wait_seconds(&root, 5).await;
+    // println!("Finished waiting at {timestamp}");
+
     let res = user1
         .call(session_vault.id(), "claim")
         .args_json((Option::<AccountId>::None,))
+        .max_gas()
         .transact()
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
     // call!(user1, session_vault.claim(None)).assert_success();
+
+    // let timestamp = root
+    //     .view_block()
+    //     .await
+    //     .unwrap()
+    //     .header()
+    //     .timestamp_nanosec()
+    //     / 10_u64.pow(9);
+    // println!("timestamp before waiting is {timestamp}");
+
+    // root.fast_forward(8).await.unwrap();
+    // let timestamp = root
+    //     .view_block()
+    //     .await
+    //     .unwrap()
+    //     .header()
+    //     .timestamp_nanosec()
+    //     / 10_u64.pow(9);
+    // println!("timestamp after waiting is {timestamp}");
+
+    let timestamp = wait_seconds(&root, 9).await;
+    println!("Finished waiting at {timestamp}");
 
     let balance = token
         .view("ft_balance_of")
@@ -942,6 +1053,7 @@ async fn sim_claim() {
 
     let res: ExecutionFinalResult = owner
         .call(session_vault.id(), "claim")
+        .max_gas()
         .args_json((user1.id(),))
         .transact()
         .await

@@ -27,3 +27,46 @@
 // pub(crate) fn to_nano(timestamp: u32) -> u64 {
 //     u64::from(timestamp) * 10u64.pow(9)
 // }
+
+use near_workspaces::{network::Sandbox, Worker};
+
+pub async fn wait_seconds(worker: &Worker<Sandbox>, seconds: u64) -> u64 {
+    if seconds > 100 {
+        panic!(
+            "seconds is way too high. Max is: 100\nseconds is {}",
+            seconds
+        );
+    }
+    println!("Waiting {seconds} seconds");
+    let start = worker
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec()
+        / 10_u64.pow(9);
+    let mut waited = 0;
+    let mut timestamp = 0;
+    while waited < seconds {
+        worker.fast_forward(1).await.unwrap();
+        let current = worker
+            .view_block()
+            .await
+            .unwrap()
+            .header()
+            .timestamp_nanosec()
+            / 10_u64.pow(9);
+        waited = current - start;
+        if waited > timestamp {
+            timestamp = waited;
+            println!("waiting ({timestamp})...");
+        }
+    }
+    worker
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec()
+        / 10_u64.pow(9)
+}
