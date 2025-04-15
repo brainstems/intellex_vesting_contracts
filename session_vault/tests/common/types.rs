@@ -1,4 +1,4 @@
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{U128, U64};
 use near_sdk::serde::{Deserialize, Serialize};
 // use near_sdk::json_types::WrappedBalance;
 // use near_sdk::near;
@@ -26,9 +26,9 @@ pub struct ContractInfo {
 pub struct AccountInfo {
     pub account_id: AccountId,
     // session start time
-    pub start_timestamp: u32,
+    pub start_timestamp: U64,
     // per session lasts, eg: 90 days
-    pub session_interval: u32,
+    pub session_interval: U64,
     // totally how many session, eg: 1
     pub session_num: u32,
     // the session index of previous claim, start from 1

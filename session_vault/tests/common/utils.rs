@@ -28,7 +28,7 @@
 //     u64::from(timestamp) * 10u64.pow(9)
 // }
 
-use near_workspaces::{network::Sandbox, Worker};
+use near_workspaces::{network::Sandbox, result::ExecutionFinalResult, Worker};
 
 pub async fn wait_seconds(worker: &Worker<Sandbox>, seconds: u64) -> u64 {
     if seconds > 100 {
@@ -69,4 +69,17 @@ pub async fn wait_seconds(worker: &Worker<Sandbox>, seconds: u64) -> u64 {
         .header()
         .timestamp_nanosec()
         / 10_u64.pow(9)
+}
+
+pub async fn error_contains(res: &ExecutionFinalResult, msg: &str) {
+    let receipt_failures = res.receipt_failures();
+    assert_eq!(
+        receipt_failures.len(),
+        1,
+        "receipt_failures is {:#?}",
+        receipt_failures
+    );
+    let first = receipt_failures.first().unwrap();
+    let first = format!("{first:#?}");
+    assert!(first.contains(msg), "first is {:#?}", first);
 }

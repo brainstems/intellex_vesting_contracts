@@ -1,6 +1,10 @@
-use near_sdk::{ext_contract, json_types::U128, AccountId, Gas, NearToken, Timestamp};
+use near_sdk::{
+    ext_contract,
+    json_types::{U128, U64},
+    AccountId, Gas, NearToken, Timestamp,
+};
 
-pub type TimestampSec = u32;
+pub type TimestampSec = U64;
 
 pub const GAS_FOR_FT_TRANSFER: Gas = Gas::from_gas(10_000_000_000_000);
 #[allow(unused)]

@@ -1,4 +1,7 @@
-use near_sdk::{json_types::U128, AccountId, NearToken};
+use near_sdk::{
+    json_types::{U128, U64},
+    AccountId, NearToken,
+};
 use near_workspaces::{result::ExecutionFinalResult, Account};
 // use near_sdk_sim::{
 //     call, to_yocto, view,
@@ -48,7 +51,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     alice,
     //     token.storage_deposit(None, None),
@@ -58,10 +61,12 @@ async fn sim_one_round_scenario_1() {
     let res: ExecutionFinalResult = bob
         .call(token.id(), "storage_deposit")
         .args_json((Option::<AccountId>::None, Option::<bool>::None))
+        .deposit(NearToken::from_near(1))
+        .max_gas()
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:#?}", res);
     // call!(
     //     bob,
     //     token.storage_deposit(None, None),
@@ -71,11 +76,12 @@ async fn sim_one_round_scenario_1() {
     let res: ExecutionFinalResult = charlie
         .call(token.id(), "storage_deposit")
         .args_json((Option::<AccountId>::None, Option::<bool>::None))
+        .max_gas()
         .deposit(NearToken::from_near(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     charlie,
     //     token.storage_deposit(None, None),
@@ -83,14 +89,22 @@ async fn sim_one_round_scenario_1() {
     // )
     // .assert_success();
 
+    let timestamp = root
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec()
+        / 10_u64.pow(9);
+    println!("timestamp is {timestamp}");
     let res: ExecutionFinalResult = owner
         .call(session_vault.id(), "add_account")
-        .args_json((alice.id(), 100, 100, 4, U128(100)))
+        .args_json((alice.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // start from 100 sec, and release 100 token per 100 sec for 4 times, so the end is 500 sec.
     // call!(
     //     owner,
@@ -100,12 +114,12 @@ async fn sim_one_round_scenario_1() {
     // .assert_success();
     let res: ExecutionFinalResult = owner
         .call(session_vault.id(), "add_account")
-        .args_json((bob.id(), 100, 100, 4, U128(100)))
+        .args_json((bob.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(bob.valid_account_id(), 100, 100, 4, 100.into()),
@@ -114,12 +128,12 @@ async fn sim_one_round_scenario_1() {
     // .assert_success();
     let res: ExecutionFinalResult = owner
         .call(session_vault.id(), "add_account")
-        .args_json((charlie.id(), 100, 100, 4, U128(100)))
+        .args_json((charlie.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(charlie.valid_account_id(), 100, 100, 4, 100.into()),
@@ -135,11 +149,12 @@ async fn sim_one_round_scenario_1() {
             Option::<String>::None,
             alice.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // fill tokens
     // call!(
     //     owner,
@@ -160,11 +175,12 @@ async fn sim_one_round_scenario_1() {
             Option::<String>::None,
             bob.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -184,11 +200,12 @@ async fn sim_one_round_scenario_1() {
             Option::<String>::None,
             charlie.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -211,6 +228,7 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(contract_info.total_balance.0, 1200);
     let user_info: AccountInfo = session_vault
         .view("get_account")
+        .args_json((alice.id(),))
         .await
         .unwrap()
         .json::<AccountInfo>()
@@ -220,15 +238,15 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
 
     let balance = token
         .view("ft_balance_of")
-        .args_json(alice.id())
+        .args_json((alice.id(),))
         .await
         .unwrap()
         .json::<U128>()
@@ -243,7 +261,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
 
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info: ContractInfo = session_vault
@@ -267,8 +285,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -297,8 +315,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -320,7 +338,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
 
     // // and claim would got nothing changed
     // call!(alice, session_vault.claim(None)).assert_success();
@@ -346,8 +364,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -376,8 +394,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 100);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -398,7 +416,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // and claim does something
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -422,8 +440,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -452,8 +470,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -474,7 +492,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim does nothing
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -498,8 +516,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -529,8 +547,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 200);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -550,7 +568,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim 2 sessions
     // call!(owner, session_vault.claim(Some(bob.valid_account_id()))).assert_success();
     let contract_info = session_vault
@@ -574,8 +592,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 200);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 2);
@@ -594,7 +612,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim again does nothing
     // call!(bob, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -618,8 +636,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 200);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 2);
@@ -648,8 +666,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 300);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -670,7 +688,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim does something
     // call!(owner, session_vault.claim(Some(alice.valid_account_id()))).assert_success();
     let contract_info = session_vault
@@ -694,8 +712,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -715,7 +733,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim again does nothing
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -739,8 +757,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -770,8 +788,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 400);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -790,7 +808,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim does something
     // call!(owner, session_vault.claim(Some(charlie.valid_account_id()))).assert_success();
     let contract_info = session_vault
@@ -814,8 +832,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -834,7 +852,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // // and claim again does nothing
     // call!(charlie, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -858,8 +876,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -891,7 +909,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(alice.valid_account_id()))).assert_success();
     let res = owner
         .call(session_vault.id(), "claim")
@@ -900,7 +918,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(bob.valid_account_id()))).assert_success();
     let res = owner
         .call(session_vault.id(), "claim")
@@ -909,7 +927,7 @@ async fn sim_one_round_scenario_1() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(charlie.valid_account_id()))).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -932,8 +950,8 @@ async fn sim_one_round_scenario_1() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -989,7 +1007,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     alice,
     //     token.storage_deposit(None, None),
@@ -1003,7 +1021,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     bob,
     //     token.storage_deposit(None, None),
@@ -1017,7 +1035,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     charlie,
     //     token.storage_deposit(None, None),
@@ -1025,14 +1043,22 @@ async fn sim_one_round_scenario_2() {
     // )
     // .assert_success();
 
+    let timestamp = root
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec()
+        / 10_u64.pow(9);
+    println!("timestamp is {timestamp}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((alice.id(), 100, 100, 4, U128(100)))
+        .args_json((alice.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // start from 100 sec, and release 100 token per 100 sec for 4 times, so the end is 500 sec.
     // call!(
     //     owner,
@@ -1042,12 +1068,12 @@ async fn sim_one_round_scenario_2() {
     // .assert_success();
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((bob.id(), 100, 100, 4, U128(100)))
+        .args_json((bob.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(bob.valid_account_id(), 100, 100, 4, 100.into()),
@@ -1056,12 +1082,12 @@ async fn sim_one_round_scenario_2() {
     // .assert_success();
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((charlie.id(), 100, 100, 4, U128(100)))
+        .args_json((charlie.id(), U64(timestamp + 100), U64(100), 4, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     session_vault.add_account(charlie.valid_account_id(), 100, 100, 4, 100.into()),
@@ -1077,11 +1103,12 @@ async fn sim_one_round_scenario_2() {
             Option::<String>::None,
             alice.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // fill tokens
     // call!(
     //     owner,
@@ -1102,11 +1129,12 @@ async fn sim_one_round_scenario_2() {
             Option::<String>::None,
             bob.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -1126,11 +1154,12 @@ async fn sim_one_round_scenario_2() {
             Option::<String>::None,
             charlie.id(),
         ))
-        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(
     //     owner,
     //     token.ft_transfer_call(
@@ -1163,8 +1192,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -1184,7 +1213,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // and claim would got nothing changed
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
@@ -1208,8 +1237,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -1237,8 +1266,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 100);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -1258,7 +1287,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1281,8 +1310,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -1310,8 +1339,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -1331,7 +1360,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1354,8 +1383,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -1383,8 +1412,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 200);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -1404,7 +1433,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(bob.valid_account_id()))).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1427,8 +1456,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 200);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 2);
@@ -1448,7 +1477,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(bob, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1471,8 +1500,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 200);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 2);
@@ -1500,8 +1529,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 100);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 300);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 1);
@@ -1521,7 +1550,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(alice.valid_account_id()))).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1544,8 +1573,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -1565,7 +1594,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(alice, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1588,8 +1617,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -1617,8 +1646,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 0);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 400);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 0);
@@ -1638,7 +1667,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(charlie.valid_account_id()))).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1661,8 +1690,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -1682,7 +1711,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(charlie, session_vault.claim(None)).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1705,8 +1734,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);
@@ -1738,7 +1767,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(alice.valid_account_id()))).assert_success();
     let res = owner
         .call(session_vault.id(), "claim")
@@ -1746,7 +1775,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(bob.valid_account_id()))).assert_success();
     let res = owner
         .call(session_vault.id(), "claim")
@@ -1754,7 +1783,7 @@ async fn sim_one_round_scenario_2() {
         .transact()
         .await
         .unwrap();
-    assert!(res.is_success());
+    assert!(res.is_success(), "res is {:?}", res);
     // call!(owner, session_vault.claim(Some(charlie.valid_account_id()))).assert_success();
     let contract_info = session_vault
         .view("contract_metadata")
@@ -1777,8 +1806,8 @@ async fn sim_one_round_scenario_2() {
     assert_eq!(user_info.claimed_amount.0, 400);
     assert_eq!(user_info.deposited_amount.0, 400);
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    assert_eq!(user_info.start_timestamp, 100);
-    assert_eq!(user_info.session_interval, 100);
+    assert_eq!(user_info.start_timestamp.0, timestamp + 100);
+    assert_eq!(user_info.session_interval.0, 100);
     assert_eq!(user_info.session_num, 4);
     assert_eq!(user_info.release_per_session.0, 100);
     assert_eq!(user_info.last_claim_session, 4);

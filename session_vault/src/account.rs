@@ -125,7 +125,8 @@ impl Contract {
         if let Some(acc) = self.data().accounts.get(&account_id) {
             let mut account = acc.clone().into_current();
             assert!(
-                to_nano(account.start_timestamp + account.session_num * account.session_interval)
+                to_nano(U64(account.start_timestamp.0
+                    + account.session_num as u64 * account.session_interval.0))
                     < env::block_timestamp(),
                 "ERR_ACCOUNT_IN_SESSION"
             );
