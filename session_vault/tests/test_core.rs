@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use common::utils::wait_seconds;
-use near_sdk::{json_types::U128, AccountId, NearToken};
+use near_sdk::{
+    json_types::{U128, U64},
+    AccountId, NearToken,
+};
 // use tokio::sync::OwnedMutexGuard;
 // use near_sdk_sim::{
 //     call, to_yocto, view,
@@ -82,7 +85,7 @@ async fn sim_set_owner() {
 
     let res = user1
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), U64(10), U64(10), 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -112,7 +115,7 @@ async fn sim_set_owner() {
 
     let outcome = user1
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), U64(10), U64(10), 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -179,7 +182,7 @@ async fn sim_add_user() {
     // .assert_success();
     let res = user1
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), U64(10), U64(10), 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -210,7 +213,7 @@ async fn sim_add_user() {
 
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), timestamp + 1, 1, 2, U128::from(100)))
+        .args_json((user1.id(), U64(timestamp + 1), U64(1), 2, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -229,7 +232,7 @@ async fn sim_add_user() {
     println!("Current Timestamp in seconds is {timestamp}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), timestamp, 1, 1, U128::from(100)))
+        .args_json((user1.id(), U64(timestamp), U64(1), 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -264,7 +267,7 @@ async fn sim_add_user() {
     println!("Current Timestamp in seconds is {timestamp}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128::from(100)))
+        .args_json((user1.id(), U64(10), U64(10), 1, U128::from(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -346,7 +349,7 @@ async fn sim_deposit_token() {
 
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), 10, 10, 1, U128(100)))
+        .args_json((user1.id(), U64(10), U64(10), 1, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -718,7 +721,13 @@ async fn sim_claim() {
     println!("timestamp_1 is {timestamp_1}");
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), timestamp_1.max(2) - 2, 2, 1, U128(100)))
+        .args_json((
+            user1.id(),
+            U64(timestamp_1.max(2) - 2),
+            U64(2),
+            1,
+            U128(100),
+        ))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
@@ -969,7 +978,7 @@ async fn sim_claim() {
 
     let res = owner
         .call(session_vault.id(), "add_account")
-        .args_json((user1.id(), timestamp.max(1) - 1, 5, 2, U128(100)))
+        .args_json((user1.id(), U64(timestamp.max(1) - 1), U64(5), 2, U128(100)))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await
