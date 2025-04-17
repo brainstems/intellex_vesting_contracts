@@ -1,15 +1,21 @@
 [workspace]
-members = [
-    "./vault",
-    "./test_token",
-    "./session_vault",
-]
+members = ["./vault", "./test_token", "./session_vault"]
 
 
 [profile.release]
-codegen-units=1
+codegen-units = 1
 opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[workspace.dependencies]
+# fungible-token = { git = "https://github.com/On0n0k1/itlx_nep141_token.git" }
+near-workspaces = { version = "0.16.0", features = ["unstable"] }
+near-sdk = "=5.11.0"
+near-contract-standards = "=5.11.0"
+cargo-near-build = "0.4.5"
+anyhow = "1.0.97"
+test_token = { path = "./test_token" }
+tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread"] }
