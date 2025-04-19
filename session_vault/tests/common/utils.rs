@@ -71,6 +71,24 @@ pub async fn wait_seconds(worker: &Worker<Sandbox>, seconds: u64) -> u64 {
         / 10_u64.pow(9)
 }
 
+pub async fn wait_until(worker: &Worker<Sandbox>, timestamp: u64) {
+    let now: u64 = worker
+        .view_block()
+        .await
+        .unwrap()
+        .header()
+        .timestamp_nanosec();
+    if now > timestamp {
+        println!(
+            "No need to wait until {timestamp}. Currently {} nanoseconds ahead",
+            now - timestamp
+        );
+    } else {
+        let wait_time = (timestamp - now + 1) / 10_u64.pow(9);
+        wait_seconds(worker, wait_time).await;
+    }
+}
+
 pub async fn error_contains(res: &ExecutionFinalResult, msg: &str) {
     let receipt_failures = res.receipt_failures();
     assert_eq!(
