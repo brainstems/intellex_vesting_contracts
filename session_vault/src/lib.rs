@@ -54,6 +54,7 @@ pub struct Contract {
 
 #[near]
 impl Contract {
+    #[private]
     #[init]
     pub fn new(owner_id: String, token_id: String) -> Self {
         let owner_id: AccountId = owner_id.parse().expect("ERR_INVALID_ACCOUNT_ID_OWNER");
