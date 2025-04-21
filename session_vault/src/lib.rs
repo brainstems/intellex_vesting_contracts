@@ -54,13 +54,11 @@ pub struct Contract {
 
 #[near]
 impl Contract {
+    #[private]
     #[init]
     pub fn new(owner_id: String, token_id: String) -> Self {
         let owner_id: AccountId = owner_id.parse().expect("ERR_INVALID_ACCOUNT_ID_OWNER");
-        // AccountId::from_str(&owner_id).expect("ERR_INVALID_ACCOUNT_ID_OWNER");
         let token_id: AccountId = token_id.parse().expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
-        // AccountId::from_str(&token_id).expect("ERR_INVALID_ACCOUNT_ID_TOKEN");
-        assert!(!env::state_exists(), "Already initialized");
         let total_balance: U128 = U128::from(0);
         let claimed_balance: U128 = U128::from(0);
         Self {

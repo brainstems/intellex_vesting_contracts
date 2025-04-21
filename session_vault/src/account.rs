@@ -6,7 +6,7 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 
 use crate::utils::*;
 use crate::*;
-use near_sdk::{env, is_promise_success, log, near, AccountId, PromiseOrValue};
+use near_sdk::{env, is_promise_success, log, near, AccountId, NearToken, PromiseOrValue};
 
 // #[derive(BorshDeserialize, BorshSerialize)]
 #[derive(Clone)]
@@ -160,7 +160,10 @@ impl Contract {
 
 #[near]
 impl Contract {
+    #[payable]
     pub fn claim(&mut self, account_id: Option<AccountId>) -> PromiseOrValue<bool> {
+        let attached: NearToken = env::attached_deposit();
+        assert!(attached == ONE_YOCTO, "ERR_ONE_YOCTO_REQUIRED");
         let account_id = account_id.unwrap_or(env::predecessor_account_id());
         let mut account = self
             .data()
