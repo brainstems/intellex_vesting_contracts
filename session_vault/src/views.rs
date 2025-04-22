@@ -124,9 +124,5 @@ impl Contract {
             account_infos.push(account_info.into());
         }
         account_infos
-        // (from_index..std::cmp::min(from_index + limit, keys.len() as u64))
-        //     .map(|index| self.data().accounts.get(&keys.get(index).unwrap()).unwrap())
-        //     .map(|va| va.into())
-        //     .collect()
     }
 }
