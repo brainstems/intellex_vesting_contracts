@@ -14,7 +14,6 @@ near-sdk.workspace = true
 near-contract-standards.workspace = true
 serde_json = "=1.0.140"
 indexmap = "=2.8.0"
-# fungible-token.workspace = true
 
 [profile.release]
 codegen-units = 1
@@ -25,7 +24,6 @@ panic = "abort"
 overflow-checks = true
 
 [dev-dependencies]
-# near-sdk-sim = "3.1.0"
 near-workspaces.workspace = true
 test_token.workspace = true
 cargo-near-build.workspace = true

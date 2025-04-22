@@ -1,15 +1,11 @@
 use std::str::FromStr;
 
+use crate::common::{init::*, types::*};
 use common::utils::wait_seconds;
 use near_sdk::{
     json_types::{U128, U64},
     AccountId, NearToken,
 };
-// use tokio::sync::OwnedMutexGuard;
-// use near_sdk_sim::{
-//     call, to_yocto, view,
-// };
-use crate::common::{init::*, types::*};
 use near_workspaces::result::ExecutionFinalResult;
 
 pub mod common;
@@ -25,7 +21,6 @@ async fn sim_set_owner() {
         .await
         .unwrap()
         .result;
-    // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
 
     let contract_info: ContractInfo = session_vault
         .view("contract_metadata")
@@ -33,10 +28,8 @@ async fn sim_set_owner() {
         .unwrap()
         .json()
         .unwrap();
-    // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
     assert_eq!(&contract_info.owner_id, owner.id());
 
-    // session_vault.call("set_owner")
     let res = user1
         .call(session_vault.id(), "set_owner")
         .args_json((user1.id().to_owned(),))
@@ -55,13 +48,6 @@ async fn sim_set_owner() {
         "Failure is {:?}",
         failure
     );
-    // let out_come = call!(
-    //     user1,
-    //     session_vault.set_owner(user1.valid_account_id()),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_NOT_ALLOWED"));
 
     let res = owner
         .call(session_vault.id(), "set_owner")
@@ -71,17 +57,9 @@ async fn sim_set_owner() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     session_vault.set_owner(user1.valid_account_id()),
-    //     deposit = 1
-    // )
-    // .assert_success();
     let contract_info = session_vault.view("contract_metadata").await.unwrap();
     let contract_info: ContractInfo = contract_info.json().unwrap();
     assert_eq!(contract_info.owner_id, *user1.id());
-    // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
-    // assert_eq!(contract_info.owner_id, user1.account_id());
 
     let res = user1
         .call(session_vault.id(), "add_account")
@@ -91,12 +69,6 @@ async fn sim_set_owner() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     user1,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // )
-    // .assert_success();
 
     let res = user1
         .call(session_vault.id(), "set_owner")
@@ -106,12 +78,6 @@ async fn sim_set_owner() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     user1,
-    //     session_vault.set_owner(owner.valid_account_id()),
-    //     deposit = 1
-    // )
-    // .assert_success();
 
     let outcome = user1
         .call(session_vault.id(), "add_account")
@@ -123,39 +89,20 @@ async fn sim_set_owner() {
     assert!(outcome.is_failure());
     let failures = outcome.failures();
     assert_eq!(failures.len(), 1);
-    // let logs: Vec<String> = failures
-    //     .into_iter()
-    //     .flat_map(|err| err.logs.clone())
-    //     .collect();
-    // let filtered: Vec<String> = logs
-    //     .clone()
-    //     .into_iter()
-    //     .filter(|log| log.contains(&"ERR_NOT_ALLOWED".to_string()))
-    //     .collect();
+
     let failure = failures.first().unwrap();
     let failure = format!("{failure:?}");
 
-    // assert!(!filtered.is_empty(), "Logs is: {:?}", logs);
     assert!(
         failure.contains("ERR_NOT_ALLOWED"),
         "Failure is {}",
         failure
     );
-
-    // let out_come = call!(
-    //     user1,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_NOT_ALLOWED"));
 }
 
 #[tokio::test]
 async fn sim_add_user() {
     let (root, owner, session_vault, token) = setup_vault().await;
-    // Block timestamp not set. See if it causes an error.
-    // root.borrow_runtime_mut().cur_block.block_timestamp = 0;
     let root_account = root.root_account().unwrap();
     let res = root_account
         .create_subaccount("user1")
@@ -165,7 +112,6 @@ async fn sim_add_user() {
         .unwrap();
     assert!(res.is_success());
     let user1 = res.result;
-    // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
     let res = user1
         .call(token.id(), "storage_deposit")
         .deposit(NearToken::from_near(1))
@@ -174,12 +120,6 @@ async fn sim_add_user() {
         .await
         .unwrap();
     assert!(res.is_success(), "Failure logs is: {:?}", res.failures());
-    // call!(
-    //     user1,
-    //     token.storage_deposit(None, None),
-    //     deposit = to_yocto("1")
-    // )
-    // .assert_success();
     let res = user1
         .call(session_vault.id(), "add_account")
         .args_json((user1.id(), U64(10), U64(10), 1, U128::from(100)))
@@ -197,13 +137,6 @@ async fn sim_add_user() {
         "Logs is {:?}",
         failures
     );
-    // let out_come = call!(
-    //     user1,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_NOT_ALLOWED"));
 
     // Get current timestamp
     let timestamp = root.view_block().await.unwrap().timestamp();
@@ -219,12 +152,6 @@ async fn sim_add_user() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // )
-    // .assert_success();
 
     let timestamp = root.view_block().await.unwrap().timestamp();
     println!("Current Timestamp is {timestamp}");
@@ -247,17 +174,6 @@ async fn sim_add_user() {
         "got {:?}",
         failure
     );
-
-    // let out_come = call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ACCOUNT_IN_SESSION"));
-
-    // Not setting block timestamp, see if it causes an error
-    // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(20);
 
     // Advancing block by 4 seconds so that there is enough time for session to complete
     root.fast_forward(4).await.unwrap();
@@ -282,21 +198,13 @@ async fn sim_add_user() {
         "Logs are {:?}",
         failure
     );
-
-    // let out_come = call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ACCOUNT_NEED_CLAIM"));
 }
 
 #[tokio::test]
 async fn sim_deposit_token() {
     let (root, owner, session_vault, token) = setup_vault().await;
     let root_account = root.root_account().unwrap();
-    // let token_id = format!("{}.{}", "test_token", root_account.id());
+
     let token_id = AccountId::from_str("other_token").unwrap();
     let other_token = test_token(
         &root,
@@ -306,11 +214,7 @@ async fn sim_deposit_token() {
     )
     .await
     .unwrap();
-    // let other_token = test_token(
-    //     &root,
-    //     "other_token".to_string(),
-    //     vec![session_vault.account_id(), owner.account_id()],
-    // );
+
     let res = owner
         .call(other_token.id(), "mint")
         .args_json((U128::from(10000),))
@@ -318,12 +222,7 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(owner, other_token.mint(U128(10000))).assert_success();
 
-    // Not setting timestamp at the moment. Check if it causes an error.
-    // root.borrow_runtime_mut().cur_block.block_timestamp = 0;
-
-    // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
     let res = root_account
         .create_subaccount("user1")
         .initial_balance(NearToken::from_near(10))
@@ -340,12 +239,6 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     user1,
-    //     token.storage_deposit(None, None),
-    //     deposit = to_yocto("1")
-    // )
-    // .assert_success();
 
     let res = owner
         .call(session_vault.id(), "add_account")
@@ -355,12 +248,6 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // )
-    // .assert_success();
 
     println!(
         "owner id is {}\nother token id is {}\nuser1 id is {}",
@@ -382,33 +269,12 @@ async fn sim_deposit_token() {
         .transact()
         .await
         .unwrap();
-    // assert!(res.is_failure(), "Res is {:?}", res);
-    // let failures = res.failures();
-    // assert_eq!(failures.len(), 1);
-    // let failure = format!("{:?}", failures.first());
-    // assert!(
-    //     failure.contains("ERR_ILLEGAL_TOKEN"),
-    //     "Failure is {:?}",
-    //     failure
-    // );
+
     let receipts = res.failures();
     assert_eq!(receipts.len(), 1, "receipts is {:#?}", receipts);
     let first = receipts.first().unwrap();
     let first = format!("{first:#?}");
     assert!(first.contains("ERR_ILLEGAL_TOKEN"), "first is {:#?}", first);
-
-    // let out_come = call!(
-    //     owner,
-    //     other_token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         user1.account_id()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ILLEGAL_TOKEN"));
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
@@ -437,19 +303,6 @@ async fn sim_deposit_token() {
         "first is {:#?}",
         first
     );
-
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         "".to_string()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_MISSING_ACCOUNT_ID"));
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
@@ -480,19 +333,6 @@ async fn sim_deposit_token() {
         first
     );
 
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         "user2".to_string()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ACCOUNT_NOT_EXIST"));
-
     let res = owner
         .call(token.id(), "ft_transfer_call")
         .args_json((
@@ -500,7 +340,6 @@ async fn sim_deposit_token() {
             U128(110),
             Option::<String>::None,
             user1.id(),
-            // "user1".to_string(),
         ))
         .deposit(NearToken::from_yoctonear(1))
         .max_gas()
@@ -523,29 +362,6 @@ async fn sim_deposit_token() {
         first
     );
 
-    // assert!(res.is_failure(), "Res is {:?}", res);
-    // let failures = res.failures();
-    // assert_eq!(failures.len(), 1);
-    // // let failure_logs: Vec<String> = failures
-    // //     .into_iter()
-    // //     .flat_map(|failure| failure.logs.clone())
-    // //     .collect();
-    // let failure = format!("{:?}", failures.first());
-    // assert!(failure.contains("ERR_INCORRECT_AMOUNT"));
-
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(110),
-    //         None,
-    //         "user1".to_string()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_INCORRECT_AMOUNT"));
-
     let res = owner
         .call(token.id(), "ft_transfer_call")
         .args_json((
@@ -560,18 +376,6 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-
-    // call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         user1.account_id()
-    //     ),
-    //     deposit = 1
-    // )
-    // .assert_success();
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
@@ -602,33 +406,6 @@ async fn sim_deposit_token() {
         first
     );
 
-    // assert!(res.is_failure(), "Res is {:?}", res);
-    // let failures = res.failures();
-    // assert_eq!(failures.len(), 1);
-
-    // let failure = format!("{:?}", failures.first());
-    // assert!(
-    //     failure.contains("ERR_ALREADY_DEPOSITED"),
-    //     "failure is {:#?}",
-    //     failure
-    // );
-
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         "user1".to_string()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ALREADY_DEPOSITED"));
-
-    // Not setting block timestamp at the moment
-    // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(20);
-
     let res = user1
         .call(session_vault.id(), "claim")
         .args_json((Option::<AccountId>::None,))
@@ -637,7 +414,7 @@ async fn sim_deposit_token() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(user1, session_vault.claim(None)).assert_success();
+
     let user_info = session_vault
         .view("get_account")
         .args_json((user1.id(),))
@@ -646,9 +423,6 @@ async fn sim_deposit_token() {
         .json::<AccountInfo>()
         .unwrap();
     assert_eq!(user_info.unclaimed_amount.0, 0);
-    // let user_info =
-    //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
-    // assert_eq!(user_info.unclaimed_amount.0, 0);
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
@@ -678,28 +452,12 @@ async fn sim_deposit_token() {
         "first is {:#?}",
         first
     );
-
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         "user1".to_string()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ALREADY_DEPOSITED"));
 }
 
 #[tokio::test]
 async fn sim_claim() {
     let (root, owner, session_vault, token) = setup_vault().await;
-    // println!("block env ----> height: {}", root.borrow_runtime().current_block().block_height);
 
-    // Not setting block timestamp at the moment
-    // root.borrow_runtime_mut().cur_block.block_timestamp = 0;
     let root_account = root.root_account().unwrap();
     let res = root_account
         .create_subaccount("user1")
@@ -709,7 +467,6 @@ async fn sim_claim() {
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res.result);
     let user1 = res.result;
-    // let user1 = root.create_user("user1".to_string(), to_yocto("10"));
 
     let timestamp_1 = root
         .view_block()
@@ -733,12 +490,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 10, 10, 1, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // )
-    // .assert_success();
 
     let contract_info: ContractInfo = session_vault
         .view("contract_metadata")
@@ -746,12 +497,9 @@ async fn sim_claim() {
         .unwrap()
         .json::<ContractInfo>()
         .unwrap();
-    // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
+
     assert_eq!(contract_info.claimed_balance.0, 0);
     assert_eq!(contract_info.total_balance.0, 0);
-
-    // Not setting block timestamp for now to see if it still works
-    // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(20);
 
     let timestamp_2 = root
         .view_block()
@@ -774,8 +522,7 @@ async fn sim_claim() {
         .unwrap()
         .json::<AccountInfo>()
         .unwrap();
-    // let user_info =
-    //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
+
     assert_eq!(
         user_info.unclaimed_amount.0, 100,
         "user_info is {:?}",
@@ -798,9 +545,6 @@ async fn sim_claim() {
         "Logs is {:?}",
         failure
     );
-    // let out_come = call!(owner, session_vault.claim(Some(owner.valid_account_id())));
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_ACCOUNT_NOT_EXIST"));
 
     let out_come = owner
         .call(session_vault.id(), "claim")
@@ -818,10 +562,6 @@ async fn sim_claim() {
         "Logs is {:?}",
         failure
     );
-    // let out_come = call!(owner, session_vault.claim(Some(user1.valid_account_id())));
-
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_NOT_ENOUGH_BALANCE"));
 
     let res = owner
         .call(token.id(), "ft_transfer_call")
@@ -837,24 +577,14 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         user1.account_id()
-    //     ),
-    //     deposit = 1
-    // )
-    // .assert_success();
+
     let contract_info: ContractInfo = session_vault
         .view("contract_metadata")
         .await
         .unwrap()
         .json::<ContractInfo>()
         .unwrap();
-    // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
+
     assert_eq!(contract_info.claimed_balance.0, 0);
     assert_eq!(contract_info.total_balance.0, 100);
 
@@ -881,21 +611,6 @@ async fn sim_claim() {
         first
     );
 
-    // assert!(out_come.is_failure(), "out_come is {:#?}", out_come);
-    // let failures = out_come.failures();
-    // assert_eq!(failures.len(), 1);
-
-    // let failure = format!("{:?}", failures.first());
-    // assert!(
-    //     failure.contains("The account user1.test.near is not registered"),
-    //     "Failure is {:?}",
-    //     failure
-    // );
-
-    // let out_come = call!(user1, session_vault.claim(None));
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("The account user1 is not registered"));
-
     let user_info = session_vault
         .view("get_account")
         .args_json((user1.id(),))
@@ -903,8 +618,6 @@ async fn sim_claim() {
         .unwrap()
         .json::<AccountInfo>()
         .unwrap();
-    // let user_info =
-    //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
     assert_eq!(
         user_info.unclaimed_amount.0, 100,
         "user_info is {:?}",
@@ -919,12 +632,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     user1,
-    //     token.storage_deposit(None, None),
-    //     deposit = to_yocto("1")
-    // )
-    // .assert_success();
 
     let res = user1
         .call(session_vault.id(), "claim")
@@ -934,7 +641,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(user1, session_vault.claim(None)).assert_success();
 
     let contract_info = session_vault
         .view("contract_metadata")
@@ -942,7 +648,6 @@ async fn sim_claim() {
         .unwrap()
         .json::<ContractInfo>()
         .unwrap();
-    // let contract_info = view!(session_vault.contract_metadata()).unwrap_json::<ContractInfo>();
     assert_eq!(contract_info.claimed_balance.0, 100);
     assert_eq!(contract_info.total_balance.0, 100);
     let user_info = session_vault
@@ -952,9 +657,6 @@ async fn sim_claim() {
         .unwrap()
         .json::<AccountInfo>()
         .unwrap();
-
-    // let user_info =
-    //     view!(session_vault.get_account(user1.valid_account_id())).unwrap_json::<AccountInfo>();
 
     assert_eq!(user_info.unclaimed_amount.0, 0);
 
@@ -966,7 +668,6 @@ async fn sim_claim() {
         .json::<U128>()
         .unwrap();
     assert_eq!(100, user1_balance.0);
-    // assert_eq!(100, balance_of(&token, &user1.account_id()));
 
     let timestamp: u64 = root
         .view_block()
@@ -984,27 +685,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     session_vault.add_account(user1.valid_account_id(), 20, 20, 2, 100.into()),
-    //     deposit = to_yocto("0.1")
-    // )
-    // .assert_success();
-
-    // Advance 2 seconds to trigger updates
-    // println!("timestamp before fast forward is {timestamp}");
-    // root.fast_forward(8).await.unwrap();
-    // let timestamp = root
-    //     .view_block()
-    //     .await
-    //     .unwrap()
-    //     .header()
-    //     .timestamp_nanosec()
-    //     / 10_u64.pow(9);
-    // println!("timestamp after fast forward is {timestamp}");
-
-    // let timestamp = wait_seconds(&root, 6).await;
-    // println!("Finished waiting at {timestamp}");
 
     let out_come = owner
         .call(token.id(), "ft_transfer_call")
@@ -1034,19 +714,6 @@ async fn sim_claim() {
         first
     );
 
-    // let out_come = call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(100),
-    //         None,
-    //         user1.account_id()
-    //     ),
-    //     deposit = 1
-    // );
-    // assert_eq!(get_error_count(&out_come), 1);
-    // assert!(get_error_status(&out_come).contains("ERR_INCORRECT_AMOUNT"));
-
     let res = owner
         .call(token.id(), "ft_transfer_call")
         .max_gas()
@@ -1061,20 +728,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(
-    //     owner,
-    //     token.ft_transfer_call(
-    //         session_vault.valid_account_id(),
-    //         U128(200),
-    //         None,
-    //         user1.account_id()
-    //     ),
-    //     deposit = 1
-    // )
-    // .assert_success();
-
-    // Not setting block timestamp for now
-    // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(40);
 
     let timestamp = wait_seconds(&root, 4).await;
     println!("Finished waiting at {timestamp}");
@@ -1087,26 +740,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(user1, session_vault.claim(None)).assert_success();
-
-    // let timestamp = root
-    //     .view_block()
-    //     .await
-    //     .unwrap()
-    //     .header()
-    //     .timestamp_nanosec()
-    //     / 10_u64.pow(9);
-    // println!("timestamp before waiting is {timestamp}");
-
-    // root.fast_forward(8).await.unwrap();
-    // let timestamp = root
-    //     .view_block()
-    //     .await
-    //     .unwrap()
-    //     .header()
-    //     .timestamp_nanosec()
-    //     / 10_u64.pow(9);
-    // println!("timestamp after waiting is {timestamp}");
 
     let balance = token
         .view("ft_balance_of")
@@ -1116,10 +749,6 @@ async fn sim_claim() {
         .json::<U128>()
         .unwrap();
     assert_eq!(200, balance.0);
-    // assert_eq!(200, balance_of(&token, &user1.account_id()));
-
-    // Not setting block timestamp for now
-    // root.borrow_runtime_mut().cur_block.block_timestamp = to_nano(60);
 
     let timestamp = wait_seconds(&root, 6).await;
     println!("Finished waiting at {timestamp}");
@@ -1132,7 +761,6 @@ async fn sim_claim() {
         .await
         .unwrap();
     assert!(res.is_success(), "Res is {:?}", res);
-    // call!(owner, session_vault.claim(Some(user1.valid_account_id()))).assert_success();
 
     let balance: U128 = token
         .view("ft_balance_of")
@@ -1142,5 +770,4 @@ async fn sim_claim() {
         .json::<U128>()
         .unwrap();
     assert_eq!(300, balance.0);
-    // assert_eq!(300, balance_of(&token, &user1.account_id()));
 }

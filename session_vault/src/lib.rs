@@ -4,7 +4,6 @@
 */
 
 use near_sdk::borsh::BorshSerialize;
-// use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::{U128, U64};
 use near_sdk::store::IterableMap;
 use near_sdk::{env, near, AccountId, BorshStorageKey, PanicOnDefault};
@@ -15,8 +14,6 @@ mod account;
 mod owner;
 mod utils;
 mod views;
-
-// near_sdk::setup_alloc!();
 
 #[derive(BorshSerialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]

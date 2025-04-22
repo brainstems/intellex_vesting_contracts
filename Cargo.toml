@@ -11,7 +11,6 @@ panic = "abort"
 overflow-checks = true
 
 [workspace.dependencies]
-# fungible-token = { git = "https://github.com/On0n0k1/itlx_nep141_token.git" }
 near-workspaces = { version = "0.16.0", features = ["unstable"] }
 near-sdk = "=5.11.0"
 near-contract-standards = "=5.11.0"
